@@ -3,7 +3,7 @@ module github.com/MandarinSolutions/terraform-provider-emma
 go 1.22.0
 
 require (
-	github.com/MandarinSolutions/emma-go-sdk v0.0.0
+	github.com/MandarinSolutions/emma-go-sdk v0.0.3
 	github.com/hashicorp/terraform-plugin-docs v0.19.1
 	github.com/hashicorp/terraform-plugin-framework v1.8.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
@@ -71,5 +71,3 @@ require (
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/MandarinSolutions/emma-go-sdk v0.0.0 => ../emma-go-sdk

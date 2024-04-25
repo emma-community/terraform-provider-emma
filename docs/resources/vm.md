@@ -50,22 +50,9 @@ resource "emma_vm" "vm" {
 ### Read-Only
 
 - `cost` (Attributes) (see [below for nested schema](#nestedatt--cost))
-- `cpu` (Number) Vm cpu configurable attribute
-- `created_at` (String) Vm created_at configurable attribute
-- `created_by_id` (Number) Vm created_by_id configurable attribute
-- `created_by_name` (String) Vm created_by_name configurable attribute
-- `data_center` (Attributes) (see [below for nested schema](#nestedatt--data_center))
 - `disks` (Attributes List) (see [below for nested schema](#nestedatt--disks))
 - `id` (Number) Vm id configurable attribute
-- `location` (Attributes) (see [below for nested schema](#nestedatt--location))
-- `modified_at` (String) Vm modified_at configurable attribute
-- `modified_by_id` (Number) Vm modified_by_id configurable attribute
-- `modified_by_name` (String) Vm modified_by_name configurable attribute
-- `os` (Attributes) (see [below for nested schema](#nestedatt--os))
-- `project_id` (Number) Vm project_id configurable attribute
-- `provider_` (Attributes) (see [below for nested schema](#nestedatt--provider_))
 - `status` (String) Vm status configurable attribute
-- `user_name` (String) Vm user_name configurable attribute
 
 <a id="nestedatt--networks"></a>
 ### Nested Schema for `networks`
@@ -88,19 +75,6 @@ Read-Only:
 - `unit` (String) Vm cost unit configurable attribute
 
 
-<a id="nestedatt--data_center"></a>
-### Nested Schema for `data_center`
-
-Read-Only:
-
-- `id` (Number) Vm data center id configurable attribute
-- `location_id` (Number) Vm data center location_id configurable attribute
-- `location_name` (String) Vm data center location_name configurable attribute
-- `name` (String) Vm data center name configurable attribute
-- `provider_id` (Number) Vm data center provider_id configurable attribute
-- `provider_name` (String) Vm data center provider_name configurable attribute
-
-
 <a id="nestedatt--disks"></a>
 ### Nested Schema for `disks`
 
@@ -111,33 +85,3 @@ Read-Only:
 - `size_gb` (Number) Vm disks size_gb configurable attribute
 - `type` (String) Vm disks type configurable attribute
 - `type_id` (Number) Vm disks type_id configurable attribute
-
-
-<a id="nestedatt--location"></a>
-### Nested Schema for `location`
-
-Read-Only:
-
-- `id` (Number) Vm  location id configurable attribute
-- `name` (String) Vm location name configurable attribute
-
-
-<a id="nestedatt--os"></a>
-### Nested Schema for `os`
-
-Read-Only:
-
-- `architecture` (String) Vm os architecture configurable attribute
-- `family` (String) Vm os family configurable attribute
-- `id` (Number) Vm os id configurable attribute
-- `type` (String) Vm os type configurable attribute
-- `version` (String) Vm os version configurable attribute
-
-
-<a id="nestedatt--provider_"></a>
-### Nested Schema for `provider_`
-
-Read-Only:
-
-- `id` (Number) Vm provider id configurable attribute
-- `name` (String) Vm provider name configurable attribute

@@ -40,50 +40,10 @@ type vmResourceModel struct {
 	VolumeGb         types.Int64  `tfsdk:"volume_gb"`
 	SshKeyId         types.Int64  `tfsdk:"ssh_key_id"`
 	//SecurityGroupId  types.Int64  `tfsdk:"security_group_id"`
-	CreatedAt      types.String `tfsdk:"created_at"`
-	CreatedById    types.Int64  `tfsdk:"created_by_id"`
-	CreatedByName  types.String `tfsdk:"created_by_name"`
-	ModifiedAt     types.String `tfsdk:"modified_at"`
-	ModifiedByName types.String `tfsdk:"modified_by_name"`
-	ModifiedById   types.Int64  `tfsdk:"modified_by_id"`
-	ProjectId      types.Int64  `tfsdk:"project_id"`
-	Status         types.String `tfsdk:"status"`
-	Cpu            types.Int64  `tfsdk:"cpu"`
-	UserName       types.String `tfsdk:"user_name"`
-	Provider_      types.Object `tfsdk:"provider_"`
-	Location       types.Object `tfsdk:"location"`
-	DataCenter     types.Object `tfsdk:"data_center"`
-	Os             types.Object `tfsdk:"os"`
-	Disks          types.List   `tfsdk:"disks"`
-	Networks       types.List   `tfsdk:"networks"`
-	Cost           types.Object `tfsdk:"cost"`
-}
-
-type vmResourceProviderModel struct {
-	Id   types.Int64  `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
-}
-
-type vmResourceLocationModel struct {
-	Id   types.Int64  `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
-}
-
-type vmResourceDataCenterModel struct {
-	Id           types.Int64  `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	ProviderName types.String `tfsdk:"provider_name"`
-	ProviderId   types.Int64  `tfsdk:"provider_id"`
-	LocationId   types.Int64  `tfsdk:"location_id"`
-	LocationName types.String `tfsdk:"location_name"`
-}
-
-type vmResourceOsModel struct {
-	Id           types.Int64  `tfsdk:"id"`
-	Family       types.String `tfsdk:"family"`
-	Type         types.String `tfsdk:"type"`
-	Architecture types.String `tfsdk:"architecture"`
-	Version      types.String `tfsdk:"version"`
+	Status   types.String `tfsdk:"status"`
+	Disks    types.List   `tfsdk:"disks"`
+	Networks types.List   `tfsdk:"networks"`
+	Cost     types.Object `tfsdk:"cost"`
 }
 
 type vmResourceDiskModel struct {
@@ -181,125 +141,9 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 			//	Optional:            true,
 			//},
 
-			"created_at": schema.StringAttribute{
-				MarkdownDescription: "Vm created_at configurable attribute",
-				Computed:            true,
-			},
-			"created_by_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm created_by_id configurable attribute",
-				Computed:            true,
-			},
-			"created_by_name": schema.StringAttribute{
-				MarkdownDescription: "Vm created_by_name configurable attribute",
-				Computed:            true,
-			},
-			"modified_at": schema.StringAttribute{
-				MarkdownDescription: "Vm modified_at configurable attribute",
-				Computed:            true,
-			},
-			"modified_by_name": schema.StringAttribute{
-				MarkdownDescription: "Vm modified_by_name configurable attribute",
-				Computed:            true,
-			},
-			"modified_by_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm modified_by_id configurable attribute",
-				Computed:            true,
-			},
-			"project_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm project_id configurable attribute",
-				Computed:            true,
-			},
 			"status": schema.StringAttribute{
 				MarkdownDescription: "Vm status configurable attribute",
 				Computed:            true,
-			},
-			"cpu": schema.Int64Attribute{
-				MarkdownDescription: "Vm cpu configurable attribute",
-				Computed:            true,
-			},
-			"user_name": schema.StringAttribute{
-				MarkdownDescription: "Vm user_name configurable attribute",
-				Computed:            true,
-			},
-			"provider_": schema.SingleNestedAttribute{
-				Computed: true,
-				Attributes: map[string]schema.Attribute{
-					"id": schema.Int64Attribute{
-						MarkdownDescription: "Vm provider id configurable attribute",
-						Computed:            true,
-					},
-					"name": schema.StringAttribute{
-						MarkdownDescription: "Vm provider name configurable attribute",
-						Computed:            true,
-					},
-				},
-			},
-			"location": schema.SingleNestedAttribute{
-				Computed: true,
-				Attributes: map[string]schema.Attribute{
-					"id": schema.Int64Attribute{
-						MarkdownDescription: "Vm  location id configurable attribute",
-						Computed:            true,
-					},
-					"name": schema.StringAttribute{
-						MarkdownDescription: "Vm location name configurable attribute",
-						Computed:            true,
-					},
-				},
-			},
-			"data_center": schema.SingleNestedAttribute{
-				Computed: true,
-				Attributes: map[string]schema.Attribute{
-					"id": schema.Int64Attribute{
-						MarkdownDescription: "Vm data center id configurable attribute",
-						Computed:            true,
-					},
-					"name": schema.StringAttribute{
-						MarkdownDescription: "Vm data center name configurable attribute",
-						Computed:            true,
-					},
-					"provider_name": schema.StringAttribute{
-						MarkdownDescription: "Vm data center provider_name configurable attribute",
-						Computed:            true,
-					},
-					"provider_id": schema.Int64Attribute{
-						MarkdownDescription: "Vm data center provider_id configurable attribute",
-						Computed:            true,
-					},
-					"location_id": schema.Int64Attribute{
-						MarkdownDescription: "Vm data center location_id configurable attribute",
-						Computed:            true,
-					},
-					"location_name": schema.StringAttribute{
-						MarkdownDescription: "Vm data center location_name configurable attribute",
-						Computed:            true,
-					},
-				},
-			},
-			"os": schema.SingleNestedAttribute{
-				Computed: true,
-				Attributes: map[string]schema.Attribute{
-					"id": schema.Int64Attribute{
-						MarkdownDescription: "Vm os id configurable attribute",
-						Computed:            true,
-					},
-					"family": schema.StringAttribute{
-						MarkdownDescription: "Vm os family configurable attribute",
-						Computed:            true,
-					},
-					"type": schema.StringAttribute{
-						MarkdownDescription: "Vm os type configurable attribute",
-						Computed:            true,
-					},
-					"architecture": schema.StringAttribute{
-						MarkdownDescription: "Vm os architecture configurable attribute",
-						Computed:            true,
-					},
-					"version": schema.StringAttribute{
-						MarkdownDescription: "Vm os version configurable attribute",
-						Computed:            true,
-					},
-				},
 			},
 			"disks": schema.ListNestedAttribute{
 				Computed: true,
@@ -492,56 +336,7 @@ func ConvertToVmCreateRequest(data vmResourceModel, vmCreate *emmaSdk.VmCreate) 
 
 func ConvertResponseToResource(ctx context.Context, data *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
 	data.Id = types.Int64Value(tools.ConvertToInt64(vm.Id))
-	data.CreatedAt = types.StringValue(tools.ConvertToString(vm.CreatedAt))
-	data.CreatedById = types.Int64Value(tools.ConvertToInt64(vm.CreatedById))
-	data.CreatedByName = types.StringValue(tools.ConvertToString(vm.CreatedByName))
-	data.ModifiedAt = types.StringValue(tools.ConvertToString(vm.ModifiedAt))
-	data.ModifiedById = types.Int64Value(tools.ConvertToInt64(vm.ModifiedById))
-	data.ModifiedByName = types.StringValue(tools.ConvertToString(vm.ModifiedByName))
-	data.ProjectId = types.Int64Value(tools.ConvertToInt64(vm.ProjectId))
 	data.Status = types.StringValue(tools.ConvertToString(vm.Status))
-	data.UserName = types.StringValue(tools.ConvertToString(vm.UserName))
-	data.Cpu = types.Int64Value(tools.ConvertToInt64(vm.Cpu))
-
-	vmResourceDataCenter := vmResourceDataCenterModel{
-		Id:           types.Int64Value(tools.ConvertToInt64(vm.DataCenter.Id)),
-		Name:         types.StringValue(tools.ConvertToString(vm.DataCenter.Name)),
-		ProviderName: types.StringValue(tools.ConvertToString(vm.DataCenter.ProviderName)),
-		ProviderId:   types.Int64Value(tools.ConvertToInt64(vm.DataCenter.ProviderId)),
-		LocationId:   types.Int64Value(tools.ConvertToInt64(vm.DataCenter.LocationId)),
-		LocationName: types.StringValue(tools.ConvertToString(vm.DataCenter.LocationName)),
-	}
-	dataCenterObjectValue, dataCenterDiagnostic := types.ObjectValueFrom(ctx, vmResourceDataCenterModel{}.attrTypes(), vmResourceDataCenter)
-	data.DataCenter = dataCenterObjectValue
-	diags.Append(dataCenterDiagnostic...)
-
-	vmResourceOs := vmResourceOsModel{
-		Id:           types.Int64Value(tools.ConvertToInt64(vm.Os.Id)),
-		Type:         types.StringValue(tools.ConvertToString(vm.Os.Type)),
-		Family:       types.StringValue(tools.ConvertToString(vm.Os.Family)),
-		Architecture: types.StringValue(tools.ConvertToString(vm.Os.Architecture)),
-		Version:      types.StringValue(tools.ConvertToString(vm.Os.Version)),
-	}
-	osObjectValue, osDiagnostic := types.ObjectValueFrom(ctx, vmResourceOsModel{}.attrTypes(), vmResourceOs)
-	data.Os = osObjectValue
-	diags.Append(osDiagnostic...)
-
-	vmResourceProvider := vmResourceProviderModel{
-		Id:   types.Int64Value(tools.ConvertToInt64(vm.Provider.Id)),
-		Name: types.StringValue(tools.ConvertToString(vm.Provider.Name)),
-	}
-	providerObjectValue, providerDiagnostic := types.ObjectValueFrom(ctx, vmResourceProviderModel{}.attrTypes(), vmResourceProvider)
-	data.Provider_ = providerObjectValue
-	diags.Append(providerDiagnostic...)
-
-	vmResourceLocation := vmResourceLocationModel{
-		Id:   types.Int64Value(tools.ConvertToInt64(vm.Location.Id)),
-		Name: types.StringValue(tools.ConvertToString(vm.Location.Name)),
-	}
-
-	locationObjectValue, locationDiagnostic := types.ObjectValueFrom(ctx, vmResourceLocationModel{}.attrTypes(), vmResourceLocation)
-	data.Location = locationObjectValue
-	diags.Append(locationDiagnostic...)
 
 	vmResourceCost := vmResourceCostModel{
 		Price:    types.Float64Value(tools.ConvertToFloat64(vm.Cost.Price)),
@@ -581,41 +376,6 @@ func ConvertResponseToResource(ctx context.Context, data *vmResourceModel, vm *e
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
 	data.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
-}
-
-func (o vmResourceProviderModel) attrTypes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"id":   types.Int64Type,
-		"name": types.StringType,
-	}
-}
-
-func (o vmResourceLocationModel) attrTypes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"id":   types.Int64Type,
-		"name": types.StringType,
-	}
-}
-
-func (o vmResourceDataCenterModel) attrTypes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"id":            types.Int64Type,
-		"name":          types.StringType,
-		"provider_name": types.StringType,
-		"provider_id":   types.Int64Type,
-		"location_id":   types.Int64Type,
-		"location_name": types.StringType,
-	}
-}
-
-func (o vmResourceOsModel) attrTypes() map[string]attr.Type {
-	return map[string]attr.Type{
-		"id":           types.Int64Type,
-		"family":       types.StringType,
-		"type":         types.StringType,
-		"architecture": types.StringType,
-		"version":      types.StringType,
-	}
 }
 
 func (o vmResourceCostModel) attrTypes() map[string]attr.Type {

@@ -3,8 +3,8 @@ package emma
 import (
 	"context"
 	"fmt"
-	emmaSdk "github.com/MandarinSolutions/emma-go-sdk"
-	"github.com/MandarinSolutions/terraform-provider-emma/tools"
+	emmaSdk "github.com/emma-community/emma-go-sdk"
+	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -324,14 +324,14 @@ func (r *vmResource) Delete(ctx context.Context, req resource.DeleteRequest, res
 func ConvertToVmCreateRequest(data vmResourceModel, vmCreate *emmaSdk.VmCreate) {
 	vmCreate.Name = data.Name.ValueString()
 	vmCreate.DataCenterId = data.DataCenterId.ValueString()
-	vmCreate.OsId = data.OsId.ValueInt64()
+	vmCreate.OsId = int32(data.OsId.ValueInt64())
 	vmCreate.CloudNetworkType = data.CloudNetworkType.ValueString()
 	vmCreate.VCpuType = data.VcpuType.ValueString()
-	vmCreate.VCpu = data.Vcpu.ValueInt64()
-	vmCreate.RamGb = data.RamGb.ValueInt64()
+	vmCreate.VCpu = int32(data.Vcpu.ValueInt64())
+	vmCreate.RamGb = int32(data.RamGb.ValueInt64())
 	vmCreate.VolumeType = data.VolumeType.ValueString()
-	vmCreate.VolumeGb = data.VolumeGb.ValueInt64()
-	vmCreate.SshKeyId = data.SshKeyId.ValueInt64()
+	vmCreate.VolumeGb = int32(data.VolumeGb.ValueInt64())
+	vmCreate.SshKeyId = int32(data.SshKeyId.ValueInt64())
 }
 
 func ConvertResponseToResource(ctx context.Context, data *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {

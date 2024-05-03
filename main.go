@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/MandarinSolutions/terraform-provider-emma/internal/emma"
+	"github.com/emma-community/terraform-provider-emma/internal/emma"
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"

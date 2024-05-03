@@ -7,9 +7,8 @@ terraform {
 }
 
 provider "emma" {
-  host          = "https://customer-gateway.dev.emma.ms"
-  client_id     = "87e1bf85-7909-4657-9b41-88dd26006c65"
-  client_secret = "73ec5dd6-797d-4b69-afb4-90f1e511a063"
+  client_id     = "client_id"
+  client_secret = "client_secret"
 }
 
 data "emma_data_center" "aws" {
@@ -32,7 +31,7 @@ data "emma_provider" "aws" {
 }
 
 resource "emma_vm" "vm" {
-  name               = "vm-test1"
+  name               = "demo-2604"
   data_center_id     = data.emma_data_center.aws.id
   os_id              = data.emma_operating_system.ubuntu.id
   cloud_network_type = "multi-cloud"
@@ -59,7 +58,3 @@ output "emma_operating_system" {
 output "emma_provider" {
   value = data.emma_provider.aws
 }
-
-# output "emma_vm" {
-#   value = data.emma_vm.vm.id
-# }

@@ -3,8 +3,8 @@ package emma
 import (
 	"context"
 	"fmt"
-	emmaSdk "github.com/MandarinSolutions/emma-go-sdk"
-	"github.com/MandarinSolutions/terraform-provider-emma/tools"
+	emmaSdk "github.com/emma-community/emma-go-sdk"
+	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"

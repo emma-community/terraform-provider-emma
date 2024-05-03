@@ -1,9 +1,9 @@
-module github.com/MandarinSolutions/terraform-provider-emma
+module github.com/emma-community/terraform-provider-emma
 
 go 1.22.0
 
 require (
-	github.com/MandarinSolutions/emma-go-sdk v0.0.3
+	github.com/emma-community/emma-go-sdk v0.0.1
 	github.com/hashicorp/terraform-plugin-docs v0.19.1
 	github.com/hashicorp/terraform-plugin-framework v1.8.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0

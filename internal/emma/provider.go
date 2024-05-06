@@ -80,8 +80,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			path.Root("clientId"),
 			"Unknown EMMA API ClientId",
 			"The provider cannot create the EMMA API client as there is an unknown configuration value for the EMMA API clientId. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the EMMA_CLIENT_ID environment variable.",
-		)
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the EMMA_CLIENT_ID environment variable.")
 	}
 
 	if config.ClientSecret.IsUnknown() {
@@ -89,8 +88,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			path.Root("clientSecret"),
 			"Unknown EMMA API ClientSecret",
 			"The provider cannot create the EMMA API client as there is an unknown configuration value for the EMMA API clientSecret. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the EMMA_CLIENT_SECRET environment variable.",
-		)
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the EMMA_CLIENT_SECRET environment variable.")
 	}
 
 	if resp.Diagnostics.HasError() {
@@ -124,8 +122,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			"Missing EMMA API Username",
 			"The provider cannot create the EMMA API client as there is a missing or empty value for the EMMA API clientId. "+
 				"Set the clientId value in the configuration or use the EMMA_CLIENT_ID environment variable. "+
-				"If either is already set, ensure the value is not empty.",
-		)
+				"If either is already set, ensure the value is not empty.")
 	}
 
 	if clientSecret == "" {
@@ -134,8 +131,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			"Missing EMMA API Password",
 			"The provider cannot create the EMMA API client as there is a missing or empty value for the EMMA API clientSecret. "+
 				"Set the clientSecret value in the configuration or use the EMMA_CLIENT_SECRET environment variable. "+
-				"If either is already set, ensure the value is not empty.",
-		)
+				"If either is already set, ensure the value is not empty.")
 	}
 	host := os.Getenv("EMMA_HOST")
 	if !config.Host.IsNull() {
@@ -170,8 +166,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			"Unable to authenticate EMMA API Client",
 			"An unexpected error occurred when creating the EMMA API client. "+
 				"If the error is not clear, please contact the provider developers.\n\n"+
-				"EMMA Client Error: "+err.Error(),
-		)
+				"EMMA Client Error: "+err.Error())
 		return
 	}
 	fmt.Println("Token received successfully")
@@ -197,6 +192,9 @@ func (p *Provider) DataSources(_ context.Context) []func() datasource.DataSource
 func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewVmResource,
+		NewSshKeyResource,
+		NewSecurityGroupResource,
+		NewSpotInstanceResource,
 	}
 }
 

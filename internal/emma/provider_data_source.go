@@ -3,9 +3,9 @@ package emma
 import (
 	"context"
 	"fmt"
+	"github.com/emma-community/terraform-provider-emma/tools"
 
 	emmaSdk "github.com/emma-community/emma-go-sdk"
-	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -27,7 +27,7 @@ type providerDataSource struct {
 
 // providerDataSourceModel describes the data source data model.
 type providerDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
+	Id   types.Int64  `tfsdk:"id"`
 	Name types.String `tfsdk:"name"`
 }
 
@@ -41,7 +41,7 @@ func (d *providerDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 		MarkdownDescription: "Provider data source",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
+			"id": schema.Int64Attribute{
 				MarkdownDescription: "Provider id",
 				Computed:            true,
 			},
@@ -60,18 +60,13 @@ func (d *providerDataSource) Configure(ctx context.Context, req datasource.Confi
 	if req.ProviderData == nil {
 		return
 	}
-
 	client, ok := req.ProviderData.(*Client)
-
 	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
-
+		resp.Diagnostics.AddError("Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.",
+				req.ProviderData))
 		return
 	}
-
 	d.apiClient = client.apiClient
 	d.token = client.token
 }
@@ -88,12 +83,14 @@ func (d *providerDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
-	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, d.token.AccessToken)
+	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
 	request := d.apiClient.ProvidersAPI.GetProviders(auth)
 	request = request.ProviderName(data.Name.ValueString())
-	providers, _, err := request.Execute()
+	providers, response, err := request.Execute()
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read provider, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error",
+			fmt.Sprintf("Unable to read provider, got error: %s",
+				tools.ExtractErrorMessage(response)))
 		return
 	}
 	if len(providers) == 0 {
@@ -116,6 +113,6 @@ func (d *providerDataSource) Read(ctx context.Context, req datasource.ReadReques
 }
 
 func ConvertProvider(providerModel *providerDataSourceModel, provider *emmaSdk.Provider) {
-	providerModel.Id = types.StringValue(tools.ConvertToString(provider.Id))
-	providerModel.Name = types.StringValue(tools.ConvertToString(provider.Name))
+	providerModel.Id = types.Int64Value(int64(*provider.Id))
+	providerModel.Name = types.StringValue(*provider.Name)
 }

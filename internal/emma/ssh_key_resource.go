@@ -5,10 +5,13 @@ import (
 	"fmt"
 	emmaSdk "github.com/emma-community/emma-go-sdk"
 	"github.com/emma-community/terraform-provider-emma/tools"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"strconv"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -26,7 +29,7 @@ type sshKeyResource struct {
 
 // sshKeyResourceModel describes the resource data model.
 type sshKeyResourceModel struct {
-	Id          types.Int64  `tfsdk:"id"`
+	Id          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
 	Key         types.String `tfsdk:"key"`
 	Fingerprint types.String `tfsdk:"fingerprint"`
@@ -44,7 +47,7 @@ func (r *sshKeyResource) Schema(ctx context.Context, req resource.SchemaRequest,
 		MarkdownDescription: "SshKey resource",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.Int64Attribute{
+			"id": schema.StringAttribute{
 				MarkdownDescription: "SshKey id configurable attribute",
 				Computed:            true,
 			},
@@ -73,7 +76,6 @@ func (r *sshKeyResource) Schema(ctx context.Context, req resource.SchemaRequest,
 			"private_key": schema.StringAttribute{
 				MarkdownDescription: "SshKey private_key configurable attribute",
 				Computed:            true,
-				Required:            false,
 			},
 		},
 	}
@@ -150,7 +152,7 @@ func (r *sshKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
-	sshKey, response, err := r.apiClient.SSHKeysAPI.GetSshKey(auth, int32(data.Id.ValueInt64())).Execute()
+	sshKey, response, err := r.apiClient.SSHKeysAPI.GetSshKey(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error",
@@ -166,37 +168,66 @@ func (r *sshKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 }
 
 func (r *sshKeyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data sshKeyResourceModel
+	var planData sshKeyResourceModel
+	var stateData sshKeyResourceModel
 
-	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	// Read Terraform plan planData into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
+
+	if !planData.Key.IsUnknown() && !planData.KeyType.IsUnknown() {
+		resp.Diagnostics.AddError("Client Error",
+			fmt.Sprintf("Unable to update ssh key: contradicting fields: key_type, key"))
+	} else if planData.Key.IsUnknown() && planData.KeyType.IsUnknown() {
+		resp.Diagnostics.AddError("Client Error",
+			fmt.Sprintf("Unable to update ssh key: key or key_type is required"))
+	}
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// If applicable, this is a great opportunity to initialize any necessary
-	// provider client data and make a call using it.
-	var sshKeyUpdateRequest emmaSdk.SshKeyUpdate
-	ConvertToSshKeyUpdateRequest(data, &sshKeyUpdateRequest)
+	// auth context for all api calls
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
-	sshKey, response, err := r.apiClient.SSHKeysAPI.SshKeyUpdate(auth, int32(data.Id.ValueInt64())).SshKeyUpdate(sshKeyUpdateRequest).Execute()
 
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error",
-			fmt.Sprintf("Unable to update ssh key, got error: %s",
-				tools.ExtractErrorMessage(response)))
-		return
+	if !planData.Key.Equal(stateData.Key) || !planData.KeyType.Equal(stateData.KeyType) {
+		var sshKeyCreateImportRequest emmaSdk.SshKeysCreateImportRequest
+		ConvertToSshKeyCreateImportRequest(planData, &sshKeyCreateImportRequest)
+		auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
+		sshKey, response, err := r.apiClient.SSHKeysAPI.SshKeysCreateImport(auth).SshKeysCreateImportRequest(sshKeyCreateImportRequest).Execute()
+
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error",
+				fmt.Sprintf("Unable to create ssh key, got error: %s",
+					tools.ExtractErrorMessage(response)))
+			return
+		}
+
+		Delete(auth, r, stateData, resp.Diagnostics)
+
+		ConvertSshKey201ResponseToResource(&stateData, sshKey)
+
+	} else {
+		var sshKeyUpdateRequest emmaSdk.SshKeyUpdate
+		ConvertToSshKeyUpdateRequest(planData, &sshKeyUpdateRequest)
+		sshKey, response, err := r.apiClient.SSHKeysAPI.SshKeyUpdate(auth, tools.StringToInt32(stateData.Id.ValueString())).SshKeyUpdate(sshKeyUpdateRequest).Execute()
+
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error",
+				fmt.Sprintf("Unable to update ssh key, got error: %s",
+					tools.ExtractErrorMessage(response)))
+			return
+		}
+
+		ConvertSshKeyResponseToResource(&stateData, sshKey)
 	}
-
-	ConvertSshKeyResponseToResource(&data, sshKey)
 
 	// Write logs using the tflog package
 	// Documentation: https://terraform.io/plugin/log
 	tflog.Trace(ctx, "updated a ssh key resource")
 
-	// Save data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	// Save planData into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
 }
 
 func (r *sshKeyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -204,22 +235,29 @@ func (r *sshKeyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	// Read Terraform prior state data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
-	response, err := r.apiClient.SSHKeysAPI.SshKeyDelete(auth, int32(data.Id.ValueInt64())).Execute()
+	Delete(auth, r, data, resp.Diagnostics)
+}
+
+func Delete(ctx context.Context, r *sshKeyResource, stateData sshKeyResourceModel, diag diag.Diagnostics) {
+	response, err := r.apiClient.SSHKeysAPI.SshKeyDelete(ctx, tools.StringToInt32(stateData.Id.ValueString())).Execute()
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error",
+		diag.AddError("Client Error",
 			fmt.Sprintf("Unable to delete ssh key, got error: %s",
 				tools.ExtractErrorMessage(response)))
 		return
 	}
+}
+
+func (r *sshKeyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Retrieve import ID and save to id attribute
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func ConvertToSshKeyCreateImportRequest(data sshKeyResourceModel, sshKeyCreate *emmaSdk.SshKeysCreateImportRequest) {
@@ -244,19 +282,26 @@ func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyRespons
 	if sshKeyResponse.SshKey != nil {
 		ConvertSshKeyResponseToResource(data, sshKeyResponse.SshKey)
 	} else if sshKeyResponse.SshKeyGenerated != nil {
-		data.Id = types.Int64Value(int64(*sshKeyResponse.SshKeyGenerated.Id))
+		data.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.SshKeyGenerated.Id)))
 		data.Name = types.StringValue(*sshKeyResponse.SshKeyGenerated.Name)
 		data.Key = types.StringValue(*sshKeyResponse.SshKeyGenerated.Key)
 		data.Fingerprint = types.StringValue(*sshKeyResponse.SshKeyGenerated.Fingerprint)
 		data.KeyType = types.StringValue(*sshKeyResponse.SshKeyGenerated.KeyType)
-		data.PrivateKey = types.StringValue(*sshKeyResponse.SshKeyGenerated.PrivateKey)
+		if sshKeyResponse.SshKeyGenerated.PrivateKey != nil {
+			data.PrivateKey = types.StringValue(*sshKeyResponse.SshKeyGenerated.PrivateKey)
+		} else if !data.PrivateKey.IsUnknown() && !data.PrivateKey.IsNull() {
+			//ignore
+		} else {
+			data.PrivateKey = types.StringValue("")
+		}
 	}
 }
 
 func ConvertSshKeyResponseToResource(data *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKey) {
-	data.Id = types.Int64Value(int64(*sshKeyResponse.Id))
+	data.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.Id)))
 	data.Name = types.StringValue(*sshKeyResponse.Name)
 	data.Key = types.StringValue(*sshKeyResponse.Key)
 	data.Fingerprint = types.StringValue(*sshKeyResponse.Fingerprint)
 	data.KeyType = types.StringValue(*sshKeyResponse.KeyType)
+	data.PrivateKey = types.StringValue("")
 }

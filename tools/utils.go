@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 type ErrorResponse struct {
@@ -22,4 +23,12 @@ func ExtractErrorMessage(response *http.Response) string {
 		return ""
 	}
 	return data.Message
+}
+
+func StringToInt32(value string) int32 {
+	num, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	return int32(num)
 }

@@ -319,14 +319,6 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 		!planData.DataCenterId.Equal(stateData.DataCenterId) || !planData.VolumeType.Equal(stateData.VolumeType) ||
 		!planData.CloudNetworkType.Equal(stateData.CloudNetworkType) || !planData.SshKeyId.Equal(stateData.SshKeyId) {
 
-		_, response, err := r.apiClient.VirtualMachinesAPI.VmDelete(auth, int32(stateData.Id.ValueInt64())).Execute()
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to delete virtual machine, got error: %s",
-					tools.ExtractErrorMessage(response)))
-			return
-		}
-
 		var vmCreateRequest emmaSdk.VmCreate
 		ConvertToVmCreateRequest(planData, &vmCreateRequest)
 		vm, response, err := r.apiClient.VirtualMachinesAPI.VmCreate(auth).VmCreate(vmCreateRequest).Execute()
@@ -334,6 +326,14 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error",
 				fmt.Sprintf("Unable to create virtual machine, got error: %s",
+					tools.ExtractErrorMessage(response)))
+			return
+		}
+
+		_, response, err = r.apiClient.VirtualMachinesAPI.VmDelete(auth, int32(stateData.Id.ValueInt64())).Execute()
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error",
+				fmt.Sprintf("Unable to delete virtual machine, got error: %s",
 					tools.ExtractErrorMessage(response)))
 			return
 		}
@@ -460,7 +460,10 @@ func ConvertUpdateVmResponseToResource(ctx context.Context, data *vmResourceMode
 	}
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
 	data.Networks = networksListValue
+	data.Vcpu = planData.Vcpu
+	data.VcpuType = planData.VcpuType
 	data.VolumeGb = planData.VolumeGb
+	data.RamGb = planData.RamGb
 	diags.Append(networksDiagnostic...)
 }
 
@@ -505,6 +508,7 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 	}
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
 	data.Networks = networksListValue
+	data.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
 	diags.Append(networksDiagnostic...)
 }
 

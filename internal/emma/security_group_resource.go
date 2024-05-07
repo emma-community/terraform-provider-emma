@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"strings"
 	"time"
 )
 
@@ -155,7 +156,11 @@ func (r *securityGroupResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	ConvertSecurityGroupResponseToResource(ctx, &data, securityGroup, resp.Diagnostics)
+	ConvertSecurityGroupResponseToResource(ctx, nil, &data, securityGroup, &resp.Diagnostics)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Write logs using the tflog package
 	// Documentation: https://terraform.io/plugin/log
@@ -187,26 +192,32 @@ func (r *securityGroupResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
-	ConvertSecurityGroupResponseToResource(ctx, &data, securityGroup, resp.Diagnostics)
+	ConvertSecurityGroupResponseToResource(ctx, nil, &data, securityGroup, &resp.Diagnostics)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *securityGroupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data securityGroupResourceModel
+	var planData securityGroupResourceModel
+	var stateData securityGroupResourceModel
 
-	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	// Read Terraform plan planData into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	// If applicable, this is a great opportunity to initialize any necessary
-	// provider client data and make a call using it.
+	// provider client planData and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
-	securityGroup, response, err := r.apiClient.SecurityGroupsAPI.GetSecurityGroup(auth, int32(data.Id.ValueInt64())).Execute()
+	securityGroup, response, err := r.apiClient.SecurityGroupsAPI.GetSecurityGroup(auth, int32(stateData.Id.ValueInt64())).Execute()
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error",
@@ -223,8 +234,8 @@ func (r *securityGroupResource) Update(ctx context.Context, req resource.UpdateR
 	}
 
 	var securityGroupRequest emmaSdk.SecurityGroupRequest
-	ConvertToSecurityGroupUpdateRequest(ctx, data, &securityGroupRequest, defaultSecurityGroupRules)
-	securityGroup, response, err = r.apiClient.SecurityGroupsAPI.SecurityGroupUpdate(auth, int32(data.Id.ValueInt64())).SecurityGroupRequest(securityGroupRequest).Execute()
+	ConvertToSecurityGroupUpdateRequest(ctx, planData, &securityGroupRequest, defaultSecurityGroupRules)
+	securityGroup, response, err = r.apiClient.SecurityGroupsAPI.SecurityGroupUpdate(auth, int32(stateData.Id.ValueInt64())).SecurityGroupRequest(securityGroupRequest).Execute()
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error",
@@ -233,14 +244,18 @@ func (r *securityGroupResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
-	ConvertSecurityGroupResponseToResource(ctx, &data, securityGroup, resp.Diagnostics)
+	ConvertSecurityGroupResponseToResource(ctx, &planData, &stateData, securityGroup, &resp.Diagnostics)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	// Write logs using the tflog package
 	// Documentation: https://terraform.io/plugin/log
 	tflog.Trace(ctx, "updated a security group resource")
 
-	// Save data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	// Save planData into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
 }
 
 func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -303,27 +318,39 @@ func ConvertToSecurityGroupRequest(ctx context.Context, data securityGroupResour
 func ConvertToSecurityGroupUpdateRequest(ctx context.Context, data securityGroupResourceModel,
 	securityGroupRequest *emmaSdk.SecurityGroupRequest, defaultSecurityGroupRules []emmaSdk.SecurityGroupRule) {
 	ConvertToSecurityGroupRequest(ctx, data, securityGroupRequest)
-	defaultSecurityGroupRequestRules := make([]emmaSdk.SecurityGroupRuleRequest, len(defaultSecurityGroupRules))
-	for _, defaultSecurityGroupRule := range defaultSecurityGroupRequestRules {
-		defaultSecurityGroupRequestRule := emmaSdk.NewSecurityGroupRuleRequest(defaultSecurityGroupRule.Direction,
-			defaultSecurityGroupRule.Protocol, defaultSecurityGroupRule.Ports, defaultSecurityGroupRule.IpRange)
+	defaultSecurityGroupRequestRules := make([]emmaSdk.SecurityGroupRuleRequest, 0)
+	for _, defaultSecurityGroupRule := range defaultSecurityGroupRules {
+		defaultSecurityGroupRequestRule := emmaSdk.NewSecurityGroupRuleRequest(*defaultSecurityGroupRule.Direction,
+			*defaultSecurityGroupRule.Protocol, *defaultSecurityGroupRule.Ports, *defaultSecurityGroupRule.IpRange)
 		defaultSecurityGroupRequestRules = append(defaultSecurityGroupRequestRules, *defaultSecurityGroupRequestRule)
 	}
 	securityGroupRequest.Rules = append(securityGroupRequest.Rules, defaultSecurityGroupRequestRules...)
 }
 
-func ConvertSecurityGroupResponseToResource(ctx context.Context, data *securityGroupResourceModel, securityGroupResponse *emmaSdk.SecurityGroup, diags diag.Diagnostics) {
-	data.Id = types.Int64Value(int64(*securityGroupResponse.Id))
-	data.Name = types.StringValue(*securityGroupResponse.Name)
-	data.SynchronizationStatus = types.StringValue(*securityGroupResponse.SynchronizationStatus)
-	data.RecomposingStatus = types.StringValue(*securityGroupResponse.RecomposingStatus)
+func ConvertSecurityGroupResponseToResource(ctx context.Context, planData *securityGroupResourceModel,
+	stateData *securityGroupResourceModel, securityGroupResponse *emmaSdk.SecurityGroup, diags *diag.Diagnostics) {
+
+	stateData.Id = types.Int64Value(int64(*securityGroupResponse.Id))
+	stateData.Name = types.StringValue(*securityGroupResponse.Name)
+	stateData.SynchronizationStatus = types.StringValue(*securityGroupResponse.SynchronizationStatus)
+	stateData.RecomposingStatus = types.StringValue(*securityGroupResponse.RecomposingStatus)
 	if securityGroupResponse.LastModificationErrorDescription != nil {
-		data.LastModificationErrorDescription = types.StringValue(*securityGroupResponse.LastModificationErrorDescription)
+		stateData.LastModificationErrorDescription = types.StringValue(*securityGroupResponse.LastModificationErrorDescription)
 	} else {
-		data.LastModificationErrorDescription = types.StringValue("")
+		stateData.LastModificationErrorDescription = types.StringValue("")
 	}
-	if securityGroupResponse.Rules != nil {
-		var securityGroupRuleModels []securityGroupResourceRuleModel
+	if planData != nil {
+		// since we have async security group update we store requested state
+		stateData.Rules = planData.Rules
+	} else if securityGroupResponse.Rules != nil {
+		var rules []securityGroupResourceRuleModel
+		rulesListValue, _ := stateData.Rules.ToListValue(ctx)
+		rulesListValue.ElementsAs(ctx, &rules, false)
+		ruleOrderMap := make(map[string]int)
+		for idx, rule := range rules {
+			ruleOrderMap[rule.Direction.ValueString()+rule.Protocol.ValueString()+rule.Ports.ValueString()+rule.IpRange.ValueString()] = idx
+		}
+		securityGroupRuleModels := make([]securityGroupResourceRuleModel, len(ruleOrderMap))
 		for _, securityGroupRule := range securityGroupResponse.Rules {
 			if securityGroupRule.IsMutable == nil || !*securityGroupRule.IsMutable {
 				continue
@@ -334,10 +361,19 @@ func ConvertSecurityGroupResponseToResource(ctx context.Context, data *securityG
 				Ports:     types.StringValue(*securityGroupRule.Ports),
 				IpRange:   types.StringValue(*securityGroupRule.IpRange),
 			}
-			securityGroupRuleModels = append(securityGroupRuleModels, securityGroupRuleModel)
+			// to save same order as in configuration we have map, and we have 2 different checks with subnet mask and without
+			if idx, ok := ruleOrderMap[*securityGroupRule.Direction+*securityGroupRule.Protocol+*securityGroupRule.Ports+*securityGroupRule.IpRange]; ok {
+				securityGroupRuleModels[idx] = securityGroupRuleModel
+			} else if idx1, ok1 := ruleOrderMap[*securityGroupRule.Direction+*securityGroupRule.Protocol+*securityGroupRule.Ports+stripSubnetMask(*securityGroupRule.IpRange)]; ok1 {
+				securityGroupRuleModel.IpRange = types.StringValue(stripSubnetMask(securityGroupRuleModel.IpRange.ValueString()))
+				securityGroupRuleModels[idx1] = securityGroupRuleModel
+			} else {
+				securityGroupRuleModels = append(securityGroupRuleModels, securityGroupRuleModel)
+			}
 		}
-		rulesListValue, rulesDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: securityGroupResourceRuleModel{}.attrTypes()}, securityGroupRuleModels)
-		data.Rules = rulesListValue
+		rulesListValue, rulesDiagnostic := types.ListValueFrom(ctx,
+			types.ObjectType{AttrTypes: securityGroupResourceRuleModel{}.attrTypes()}, securityGroupRuleModels)
+		stateData.Rules = rulesListValue
 		diags.Append(rulesDiagnostic...)
 	}
 }
@@ -349,4 +385,11 @@ func (o securityGroupResourceRuleModel) attrTypes() map[string]attr.Type {
 		"ports":     types.StringType,
 		"ip_range":  types.StringType,
 	}
+}
+
+func stripSubnetMask(ipRange string) string {
+	if strings.Contains(ipRange, "/") {
+		return strings.Split(ipRange, "/")[0]
+	}
+	return ipRange
 }

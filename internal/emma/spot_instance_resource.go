@@ -388,6 +388,7 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstan
 	}
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceNetworkModel{}.attrTypes()}, networks)
 	data.Networks = networksListValue
+	data.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
 	diags.Append(networksDiagnostic...)
 }
 

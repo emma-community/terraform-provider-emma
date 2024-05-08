@@ -8,9 +8,6 @@ define your infrastructure as code and easily provision, update, and manage reso
 ## Features
 
 - Provision and manage virtual machines.
-- Utilize spot instances for cost-effective computing.
-- Manage SSH keys for secure access to instances.
-- Define and manage security groups to control network traffic.
 
 ## Installation
 

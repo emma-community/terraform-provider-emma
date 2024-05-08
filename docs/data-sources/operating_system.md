@@ -32,4 +32,4 @@ data "emma_operating_system" "ubuntu" {
 ### Read-Only
 
 - `family` (String) Operating system family
-- `id` (String) Operating system id
+- `id` (Number) Operating system id

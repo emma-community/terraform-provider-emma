@@ -36,7 +36,7 @@ func (v PortRange) ValidateString(ctx context.Context, req validator.StringReque
 	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}
-	if isValidPortsValue(req.ConfigValue.ValueString()) {
+	if !isValidPortsValue(req.ConfigValue.ValueString()) {
 		resp.Diagnostics.AddError("Validation Error", req.Path.String()+" is invalid, may contain next values: all, 3000 or 1-3010")
 	}
 }
@@ -56,7 +56,7 @@ func (v IpRange) ValidateString(ctx context.Context, req validator.StringRequest
 	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}
-	if isValidIpRangeValue(req.ConfigValue.ValueString()) {
+	if !isValidIpRangeValue(req.ConfigValue.ValueString()) {
 		resp.Diagnostics.AddError("Validation Error", req.Path.String()+" is invalid, may contain next values: 0.0.0.0, 1.1.1.1 or 1.1.1.1/32")
 	}
 }
@@ -161,8 +161,7 @@ func isValidIp(ip string) bool {
 		if err != nil {
 			return false
 		}
-		isValidOctet := isValidOctetValue(octet)
-		if !isValidOctet {
+		if !isValidOctetValue(octet) {
 			return false
 		}
 	}
@@ -174,16 +173,14 @@ func isValidIpRange(ipRange string) bool {
 		return false
 	}
 	ip := strings.Split(ipRange, "/")[0]
-	isIpValid := isValidIp(ip)
-	if !isIpValid {
+	if !isValidIp(ip) {
 		return false
 	}
 	prefix, err := strconv.Atoi(strings.Split(ipRange, "/")[1])
 	if err != nil {
 		return false
 	}
-	isValidPrefixLength := isValidPrefixLength(prefix)
-	if !isValidPrefixLength {
+	if !isValidPrefixLength(prefix) {
 		return false
 	}
 	return true

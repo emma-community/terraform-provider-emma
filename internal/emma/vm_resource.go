@@ -193,7 +193,6 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 			},
 			"networks": schema.ListNestedAttribute{
 				Computed: true,
-				Optional: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
@@ -550,7 +549,9 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 	data.RamGb = types.Int64Value(int64(*vm.RamGb))
 	data.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
 	data.OsId = types.Int64Value(int64(*vm.Os.Id))
-	data.DataCenterId = types.StringValue(*vm.DataCenter.Id)
+	if vm.DataCenter != nil {
+		data.DataCenterId = types.StringValue(*vm.DataCenter.Id)
+	}
 }
 
 func (o vmResourceCostModel) attrTypes() map[string]attr.Type {

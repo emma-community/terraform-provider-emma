@@ -201,7 +201,6 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 			},
 			"networks": schema.ListNestedAttribute{
 				Computed: true,
-				Optional: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
@@ -492,7 +491,9 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstan
 	data.RamGb = types.Int64Value(int64(*spotInstance.RamGb))
 	data.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
 	data.OsId = types.Int64Value(int64(*spotInstance.Os.Id))
-	data.DataCenterId = types.StringValue(*spotInstance.DataCenter.Id)
+	if spotInstance.DataCenter != nil {
+		data.DataCenterId = types.StringValue(*spotInstance.DataCenter.Id)
+	}
 }
 
 func (o spotInstanceResourceCostModel) attrTypes() map[string]attr.Type {

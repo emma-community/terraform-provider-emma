@@ -1,5 +1,5 @@
 resource "emma_security_group" "security_group" {
-  name  = "Example"
+  name = "Example"
   rules = [
     {
       direction = "INBOUND"

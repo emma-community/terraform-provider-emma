@@ -7,10 +7,12 @@ import (
 	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -30,7 +32,7 @@ type securityGroupResource struct {
 
 // securityGroupResourceModel describes the resource data model.
 type securityGroupResourceModel struct {
-	Id                               types.Int64  `tfsdk:"id"`
+	Id                               types.String `tfsdk:"id"`
 	Name                             types.String `tfsdk:"name"`
 	SynchronizationStatus            types.String `tfsdk:"synchronization_status"`
 	RecomposingStatus                types.String `tfsdk:"recomposing_status"`
@@ -55,7 +57,7 @@ func (r *securityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 		MarkdownDescription: "SecurityGroup resource",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.Int64Attribute{
+			"id": schema.StringAttribute{
 				MarkdownDescription: "SecurityGroup id configurable attribute",
 				Computed:            true,
 			},
@@ -183,7 +185,7 @@ func (r *securityGroupResource) Read(ctx context.Context, req resource.ReadReque
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
-	securityGroup, response, err := r.apiClient.SecurityGroupsAPI.GetSecurityGroup(auth, int32(data.Id.ValueInt64())).Execute()
+	securityGroup, response, err := r.apiClient.SecurityGroupsAPI.GetSecurityGroup(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error",
@@ -217,7 +219,7 @@ func (r *securityGroupResource) Update(ctx context.Context, req resource.UpdateR
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client planData and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
-	securityGroup, response, err := r.apiClient.SecurityGroupsAPI.GetSecurityGroup(auth, int32(stateData.Id.ValueInt64())).Execute()
+	securityGroup, response, err := r.apiClient.SecurityGroupsAPI.GetSecurityGroup(auth, tools.StringToInt32(stateData.Id.ValueString())).Execute()
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error",
@@ -235,7 +237,7 @@ func (r *securityGroupResource) Update(ctx context.Context, req resource.UpdateR
 
 	var securityGroupRequest emmaSdk.SecurityGroupRequest
 	ConvertToSecurityGroupUpdateRequest(ctx, planData, &securityGroupRequest, defaultSecurityGroupRules)
-	securityGroup, response, err = r.apiClient.SecurityGroupsAPI.SecurityGroupUpdate(auth, int32(stateData.Id.ValueInt64())).SecurityGroupRequest(securityGroupRequest).Execute()
+	securityGroup, response, err = r.apiClient.SecurityGroupsAPI.SecurityGroupUpdate(auth, tools.StringToInt32(stateData.Id.ValueString())).SecurityGroupRequest(securityGroupRequest).Execute()
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error",
@@ -271,11 +273,11 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 	i := 0
 	for i < 60 {
-		securityGroupInstances, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstances(auth, int32(data.Id.ValueInt64())).Execute()
+		securityGroupInstances, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstances(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to get security group instances, got error: %s",
-					tools.ExtractErrorMessage(response)))
+				fmt.Sprintf("Unable to get security group instances, got error: %s, %s",
+					tools.ExtractErrorMessage(response), err))
 			return
 		}
 
@@ -283,10 +285,10 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 			break
 		}
 		i++
-		time.Sleep(time.Second)
+		time.Sleep(5 * time.Second)
 	}
 
-	_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupDelete(auth, int32(data.Id.ValueInt64())).Execute()
+	_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupDelete(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	if err != nil {
@@ -295,6 +297,14 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 				tools.ExtractErrorMessage(response)))
 		return
 	}
+}
+
+func (r *securityGroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Retrieve import ID and save to id attribute
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+
+	r.Read(ctx, resource.ReadRequest{State: resp.State, Private: resp.Private},
+		&resource.ReadResponse{State: resp.State, Private: resp.Private, Diagnostics: resp.Diagnostics})
 }
 
 func ConvertToSecurityGroupRequest(ctx context.Context, data securityGroupResourceModel, securityGroupRequest *emmaSdk.SecurityGroupRequest) {
@@ -330,7 +340,7 @@ func ConvertToSecurityGroupUpdateRequest(ctx context.Context, data securityGroup
 func ConvertSecurityGroupResponseToResource(ctx context.Context, planData *securityGroupResourceModel,
 	stateData *securityGroupResourceModel, securityGroupResponse *emmaSdk.SecurityGroup, diags *diag.Diagnostics) {
 
-	stateData.Id = types.Int64Value(int64(*securityGroupResponse.Id))
+	stateData.Id = types.StringValue(strconv.Itoa(int(*securityGroupResponse.Id)))
 	stateData.Name = types.StringValue(*securityGroupResponse.Name)
 	stateData.SynchronizationStatus = types.StringValue(*securityGroupResponse.SynchronizationStatus)
 	stateData.RecomposingStatus = types.StringValue(*securityGroupResponse.RecomposingStatus)
@@ -342,6 +352,7 @@ func ConvertSecurityGroupResponseToResource(ctx context.Context, planData *secur
 	if planData != nil {
 		// since we have async security group update we store requested state
 		stateData.Rules = planData.Rules
+		stateData.Name = planData.Name
 	} else if securityGroupResponse.Rules != nil {
 		var rules []securityGroupResourceRuleModel
 		rulesListValue, _ := stateData.Rules.ToListValue(ctx)

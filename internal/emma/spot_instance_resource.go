@@ -7,10 +7,12 @@ import (
 	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"strconv"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -28,7 +30,7 @@ type spotInstanceResource struct {
 
 // spotInstanceResourceModel describes the resource data model.
 type spotInstanceResourceModel struct {
-	Id               types.Int64   `tfsdk:"id"`
+	Id               types.String  `tfsdk:"id"`
 	Name             types.String  `tfsdk:"name"`
 	DataCenterId     types.String  `tfsdk:"data_center_id"`
 	OsId             types.Int64   `tfsdk:"os_id"`
@@ -78,7 +80,7 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 		MarkdownDescription: "SpotInstance resource",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.Int64Attribute{
+			"id": schema.StringAttribute{
 				MarkdownDescription: "SpotInstance id configurable attribute",
 				Computed:            true,
 			},
@@ -287,7 +289,7 @@ func (r *spotInstanceResource) Read(ctx context.Context, req resource.ReadReques
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
-	spotInstance, response, err := r.apiClient.SpotInstancesAPI.GetSpot(auth, int32(data.Id.ValueInt64())).Execute()
+	spotInstance, response, err := r.apiClient.SpotInstancesAPI.GetSpot(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error",
@@ -303,7 +305,66 @@ func (r *spotInstanceResource) Read(ctx context.Context, req resource.ReadReques
 }
 
 func (r *spotInstanceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	panic("Not implemented")
+	var planData spotInstanceResourceModel
+	var stateData spotInstanceResourceModel
+
+	// Read Terraform prior state data into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// If applicable, this is a great opportunity to initialize any necessary
+	// provider client data and make a call using it.
+	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
+
+	if !planData.Name.Equal(stateData.Name) || !planData.OsId.Equal(stateData.OsId) ||
+		!planData.DataCenterId.Equal(stateData.DataCenterId) || !planData.VolumeType.Equal(stateData.VolumeType) ||
+		!planData.CloudNetworkType.Equal(stateData.CloudNetworkType) || !planData.SshKeyId.Equal(stateData.SshKeyId) ||
+		!planData.RamGb.Equal(stateData.RamGb) || !planData.Vcpu.Equal(stateData.Vcpu) ||
+		!planData.VcpuType.Equal(stateData.VcpuType) || !planData.VolumeGb.Equal(stateData.VolumeGb) {
+
+		var spotCreateRequest emmaSdk.SpotCreate
+		ConvertToSpotInstanceCreateRequest(planData, &spotCreateRequest)
+		spotInstance, response, err := r.apiClient.SpotInstancesAPI.SpotCreate(auth).SpotCreate(spotCreateRequest).Execute()
+
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error",
+				fmt.Sprintf("Unable to create spotInstance machine, got error: %s",
+					tools.ExtractErrorMessage(response)))
+			return
+		}
+
+		_, response, err = r.apiClient.SpotInstancesAPI.SpotDelete(auth, tools.StringToInt32(stateData.Id.ValueString())).Execute()
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error",
+				fmt.Sprintf("Unable to delete spotInstance machine, got error: %s",
+					tools.ExtractErrorMessage(response)))
+			return
+		}
+
+		ConvertSpotInstanceResponseToResource(ctx, &stateData, spotInstance, resp.Diagnostics)
+
+	} else {
+
+		if !planData.SecurityGroupId.Equal(stateData.SecurityGroupId) {
+			spotId := tools.StringToInt32(stateData.Id.ValueString())
+			securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &spotId}
+			_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
+				int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
+			if err != nil {
+				resp.Diagnostics.AddError("Client Error",
+					fmt.Sprintf("Unable to add spot machine to security group, got error: %s",
+						tools.ExtractErrorMessage(response)))
+				return
+			}
+		}
+	}
+
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
 }
 
 func (r *spotInstanceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -317,7 +378,7 @@ func (r *spotInstanceResource) Delete(ctx context.Context, req resource.DeleteRe
 	}
 
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
-	_, response, err := r.apiClient.SpotInstancesAPI.SpotDelete(auth, int32(data.Id.ValueInt64())).Execute()
+	_, response, err := r.apiClient.SpotInstancesAPI.SpotDelete(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
@@ -327,6 +388,14 @@ func (r *spotInstanceResource) Delete(ctx context.Context, req resource.DeleteRe
 				tools.ExtractErrorMessage(response)))
 		return
 	}
+}
+
+func (r *spotInstanceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Retrieve import ID and save to id attribute
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+
+	r.Read(ctx, resource.ReadRequest{State: resp.State, Private: resp.Private},
+		&resource.ReadResponse{State: resp.State, Private: resp.Private, Diagnostics: resp.Diagnostics})
 }
 
 func ConvertToSpotInstanceCreateRequest(data spotInstanceResourceModel, spotInstanceCreate *emmaSdk.SpotCreate) {
@@ -348,8 +417,9 @@ func ConvertToSpotInstanceCreateRequest(data spotInstanceResourceModel, spotInst
 }
 
 func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstanceResourceModel, spotInstance *emmaSdk.Vm, diags diag.Diagnostics) {
-	data.Id = types.Int64Value(int64(*spotInstance.Id))
+	data.Id = types.StringValue(strconv.Itoa(int(*spotInstance.Id)))
 	data.Status = types.StringValue(*spotInstance.Status)
+	data.Name = types.StringValue(*spotInstance.Name)
 
 	spotInstanceResourceCost := spotInstanceResourceCostModel{
 		Price:    types.Float64Value(float64(*spotInstance.Cost.Price)),
@@ -361,35 +431,56 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstan
 	data.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
-	var disks []spotInstanceResourceDiskModel
-	for _, responseDisk := range spotInstance.Disks {
-		disk := spotInstanceResourceDiskModel{
-			Id:         types.Int64Value(int64(*responseDisk.Id)),
-			Type_:      types.StringValue(*responseDisk.Type),
-			TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
-			SizeGb:     types.Int64Value(int64(*responseDisk.SizeGb)),
-			IsBootable: types.BoolValue(*responseDisk.IsBootable),
+	if spotInstance.Disks != nil {
+		var disks []spotInstanceResourceDiskModel
+		for _, responseDisk := range spotInstance.Disks {
+			if *responseDisk.IsBootable {
+				data.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
+				data.VolumeType = types.StringValue(*responseDisk.Type)
+			}
+			disk := spotInstanceResourceDiskModel{
+				Id:         types.Int64Value(int64(*responseDisk.Id)),
+				Type_:      types.StringValue(*responseDisk.Type),
+				TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
+				SizeGb:     types.Int64Value(int64(*responseDisk.SizeGb)),
+				IsBootable: types.BoolValue(*responseDisk.IsBootable),
+			}
+			disks = append(disks, disk)
 		}
-		disks = append(disks, disk)
+		disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceDiskModel{}.attrTypes()}, disks)
+		data.Disks = disksListValue
+		diags.Append(disksDiagnostic...)
 	}
-	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceDiskModel{}.attrTypes()}, disks)
-	data.Disks = disksListValue
-	diags.Append(disksDiagnostic...)
 
-	var networks []spotInstanceResourceNetworkModel
-	for _, responseNetwork := range spotInstance.Networks {
-		network := spotInstanceResourceNetworkModel{
-			Id:            types.Int64Value(int64(*responseNetwork.Id)),
-			Ip:            types.StringPointerValue(responseNetwork.Ip),
-			NetworkTypeId: types.Int64Value(int64(*responseNetwork.NetworkTypeId)),
-			NetworkType:   types.StringValue(*responseNetwork.NetworkType),
+	if spotInstance.Networks != nil {
+		var networks []spotInstanceResourceNetworkModel
+		for _, responseNetwork := range spotInstance.Networks {
+			network := spotInstanceResourceNetworkModel{
+				Id:            types.Int64Value(int64(*responseNetwork.Id)),
+				Ip:            types.StringPointerValue(responseNetwork.Ip),
+				NetworkTypeId: types.Int64Value(int64(*responseNetwork.NetworkTypeId)),
+				NetworkType:   types.StringValue(*responseNetwork.NetworkType),
+			}
+			networks = append(networks, network)
 		}
-		networks = append(networks, network)
+		networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceNetworkModel{}.attrTypes()}, networks)
+		data.Networks = networksListValue
+		diags.Append(networksDiagnostic...)
 	}
-	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceNetworkModel{}.attrTypes()}, networks)
-	data.Networks = networksListValue
+	data.Vcpu = types.Int64Value(int64(*spotInstance.VCpu))
+	data.VcpuType = types.StringValue(*spotInstance.VCpuType)
+	if spotInstance.CloudNetworkType != nil {
+		data.CloudNetworkType = types.StringValue(*spotInstance.CloudNetworkType)
+	}
+	if spotInstance.SecurityGroup != nil {
+		data.SecurityGroupId = types.Int64Value(int64(*spotInstance.SecurityGroup.Id))
+	}
+	data.RamGb = types.Int64Value(int64(*spotInstance.RamGb))
 	data.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
-	diags.Append(networksDiagnostic...)
+	data.OsId = types.Int64Value(int64(*spotInstance.Os.Id))
+	if spotInstance.DataCenter != nil {
+		data.DataCenterId = types.StringValue(*spotInstance.DataCenter.Id)
+	}
 }
 
 func (o spotInstanceResourceCostModel) attrTypes() map[string]attr.Type {

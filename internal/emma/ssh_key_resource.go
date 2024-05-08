@@ -258,6 +258,9 @@ func Delete(ctx context.Context, r *sshKeyResource, stateData sshKeyResourceMode
 func (r *sshKeyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+
+	r.Read(ctx, resource.ReadRequest{State: resp.State, Private: resp.Private},
+		&resource.ReadResponse{State: resp.State, Private: resp.Private, Diagnostics: resp.Diagnostics})
 }
 
 func ConvertToSshKeyCreateImportRequest(data sshKeyResourceModel, sshKeyCreate *emmaSdk.SshKeysCreateImportRequest) {
@@ -303,5 +306,7 @@ func ConvertSshKeyResponseToResource(data *sshKeyResourceModel, sshKeyResponse *
 	data.Key = types.StringValue(*sshKeyResponse.Key)
 	data.Fingerprint = types.StringValue(*sshKeyResponse.Fingerprint)
 	data.KeyType = types.StringValue(*sshKeyResponse.KeyType)
-	data.PrivateKey = types.StringValue("")
+	if data.PrivateKey.IsNull() || data.PrivateKey.IsUnknown() {
+		data.PrivateKey = types.StringValue("")
+	}
 }

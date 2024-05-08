@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	emmaSdk "github.com/emma-community/emma-go-sdk"
+	emma "github.com/emma-community/terraform-provider-emma/internal/emma/validation"
 	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"strconv"
@@ -88,63 +90,74 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.NotEmptyString{}},
 			},
 			"data_center_id": schema.StringAttribute{
 				MarkdownDescription: "Vm data_center_id configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.NotEmptyString{}},
 			},
 			"os_id": schema.Int64Attribute{
 				MarkdownDescription: "Vm os_id configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
 				MarkdownDescription: "Vm cloud_network_type configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.CloudNetworkType{}},
 			},
 			"vcpu_type": schema.StringAttribute{
 				MarkdownDescription: "Vm vcpu_type configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.VCpuType{}},
 			},
 			"vcpu": schema.Int64Attribute{
 				MarkdownDescription: "Vm vcpu configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ram_gb": schema.Int64Attribute{
 				MarkdownDescription: "Vm ram_gb configurable attribute",
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
 				MarkdownDescription: "Vm volume_type configurable attribute",
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.VolumeType{}},
 			},
 			"volume_gb": schema.Int64Attribute{
 				MarkdownDescription: "Vm volume_gb configurable attribute",
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ssh_key_id": schema.Int64Attribute{
 				MarkdownDescription: "Vm ssh_key_id configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"security_group_id": schema.Int64Attribute{
 				MarkdownDescription: "Vm security_group_id configurable attribute",
 				Computed:            false,
 				Required:            false,
 				Optional:            true,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 
 			"status": schema.StringAttribute{
@@ -494,42 +507,38 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 	data.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
-	if vm.Disks != nil {
-		var disks []vmResourceDiskModel
-		for _, responseDisk := range vm.Disks {
-			if *responseDisk.IsBootable {
-				data.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
-				data.VolumeType = types.StringValue(*responseDisk.Type)
-			}
-			disk := vmResourceDiskModel{
-				Id:         types.Int64Value(int64(*responseDisk.Id)),
-				Type_:      types.StringValue(*responseDisk.Type),
-				TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
-				SizeGb:     types.Int64Value(int64(*responseDisk.SizeGb)),
-				IsBootable: types.BoolValue(*responseDisk.IsBootable),
-			}
-			disks = append(disks, disk)
+	var disks []vmResourceDiskModel
+	for _, responseDisk := range vm.Disks {
+		if *responseDisk.IsBootable {
+			data.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
+			data.VolumeType = types.StringValue(*responseDisk.Type)
 		}
-		disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceDiskModel{}.attrTypes()}, disks)
-		data.Disks = disksListValue
-		diags.Append(disksDiagnostic...)
+		disk := vmResourceDiskModel{
+			Id:         types.Int64Value(int64(*responseDisk.Id)),
+			Type_:      types.StringValue(*responseDisk.Type),
+			TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
+			SizeGb:     types.Int64Value(int64(*responseDisk.SizeGb)),
+			IsBootable: types.BoolValue(*responseDisk.IsBootable),
+		}
+		disks = append(disks, disk)
 	}
+	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceDiskModel{}.attrTypes()}, disks)
+	data.Disks = disksListValue
+	diags.Append(disksDiagnostic...)
 
-	if vm.Networks != nil {
-		var networks []vmResourceNetworkModel
-		for _, responseNetwork := range vm.Networks {
-			network := vmResourceNetworkModel{
-				Id:            types.Int64Value(int64(*responseNetwork.Id)),
-				Ip:            types.StringPointerValue(responseNetwork.Ip),
-				NetworkTypeId: types.Int64Value(int64(*responseNetwork.NetworkTypeId)),
-				NetworkType:   types.StringValue(*responseNetwork.NetworkType),
-			}
-			networks = append(networks, network)
+	var networks []vmResourceNetworkModel
+	for _, responseNetwork := range vm.Networks {
+		network := vmResourceNetworkModel{
+			Id:            types.Int64Value(int64(*responseNetwork.Id)),
+			Ip:            types.StringPointerValue(responseNetwork.Ip),
+			NetworkTypeId: types.Int64Value(int64(*responseNetwork.NetworkTypeId)),
+			NetworkType:   types.StringValue(*responseNetwork.NetworkType),
 		}
-		networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
-		data.Networks = networksListValue
-		diags.Append(networksDiagnostic...)
+		networks = append(networks, network)
 	}
+	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
+	data.Networks = networksListValue
+	diags.Append(networksDiagnostic...)
 	data.Vcpu = types.Int64Value(int64(*vm.VCpu))
 	data.VcpuType = types.StringValue(*vm.VCpuType)
 	if vm.CloudNetworkType != nil {
@@ -541,9 +550,7 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 	data.RamGb = types.Int64Value(int64(*vm.RamGb))
 	data.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
 	data.OsId = types.Int64Value(int64(*vm.Os.Id))
-	if vm.DataCenter != nil {
-		data.DataCenterId = types.StringValue(*vm.DataCenter.Id)
-	}
+	data.DataCenterId = types.StringValue(*vm.DataCenter.Id)
 }
 
 func (o vmResourceCostModel) attrTypes() map[string]attr.Type {

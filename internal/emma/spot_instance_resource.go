@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	emmaSdk "github.com/emma-community/emma-go-sdk"
+	emma "github.com/emma-community/terraform-provider-emma/internal/emma/validation"
 	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"strconv"
@@ -89,65 +91,81 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.NotEmptyString{}},
 			},
 			"data_center_id": schema.StringAttribute{
 				MarkdownDescription: "SpotInstance data_center_id configurable attribute",
-				Required:            true,
-				Optional:            false,
-			},
-			"os_id": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance os_id configurable attribute",
-				Required:            true,
-				Optional:            false,
-			},
-			"cloud_network_type": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance cloud_network_type configurable attribute",
-				Required:            true,
-				Optional:            false,
-			},
-			"vcpu_type": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance vcpu_type configurable attribute",
-				Required:            true,
-				Optional:            false,
-			},
-			"vcpu": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance vcpu configurable attribute",
-				Required:            true,
-				Optional:            false,
-			},
-			"ram_gb": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance ram_gb configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.NotEmptyString{}},
+			},
+			"os_id": schema.Int64Attribute{
+				MarkdownDescription: "SpotInstance os_id configurable attribute",
+				Computed:            false,
+				Required:            true,
+				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
+			},
+			"cloud_network_type": schema.StringAttribute{
+				MarkdownDescription: "SpotInstance cloud_network_type configurable attribute",
+				Computed:            false,
+				Required:            true,
+				Optional:            false,
+				Validators:          []validator.String{emma.CloudNetworkType{}},
+			},
+			"vcpu_type": schema.StringAttribute{
+				MarkdownDescription: "SpotInstance vcpu_type configurable attribute",
+				Computed:            false,
+				Required:            true,
+				Optional:            false,
+				Validators:          []validator.String{emma.VCpuType{}},
+			},
+			"vcpu": schema.Int64Attribute{
+				MarkdownDescription: "SpotInstance vcpu configurable attribute",
+				Computed:            false,
+				Required:            true,
+				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
+			},
+			"ram_gb": schema.Int64Attribute{
+				MarkdownDescription: "SpotInstance ram_gb configurable attribute",
+				Required:            true,
+				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
 				MarkdownDescription: "SpotInstance volume_type configurable attribute",
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.VolumeType{}},
 			},
 			"volume_gb": schema.Int64Attribute{
 				MarkdownDescription: "SpotInstance volume_gb configurable attribute",
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ssh_key_id": schema.Int64Attribute{
 				MarkdownDescription: "SpotInstance ssh_key_id configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"security_group_id": schema.Int64Attribute{
 				MarkdownDescription: "SpotInstance security_group_id configurable attribute",
 				Computed:            false,
 				Required:            false,
 				Optional:            true,
+				Validators:          []validator.Int64{emma.PositiveInt64{}},
 			},
 			"price": schema.Float64Attribute{
 				MarkdownDescription: "SpotInstance price configurable attribute",
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.Float64{emma.PositiveFloat64{}},
 			},
 
 			"status": schema.StringAttribute{
@@ -431,42 +449,38 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstan
 	data.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
-	if spotInstance.Disks != nil {
-		var disks []spotInstanceResourceDiskModel
-		for _, responseDisk := range spotInstance.Disks {
-			if *responseDisk.IsBootable {
-				data.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
-				data.VolumeType = types.StringValue(*responseDisk.Type)
-			}
-			disk := spotInstanceResourceDiskModel{
-				Id:         types.Int64Value(int64(*responseDisk.Id)),
-				Type_:      types.StringValue(*responseDisk.Type),
-				TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
-				SizeGb:     types.Int64Value(int64(*responseDisk.SizeGb)),
-				IsBootable: types.BoolValue(*responseDisk.IsBootable),
-			}
-			disks = append(disks, disk)
+	var disks []spotInstanceResourceDiskModel
+	for _, responseDisk := range spotInstance.Disks {
+		if *responseDisk.IsBootable {
+			data.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
+			data.VolumeType = types.StringValue(*responseDisk.Type)
 		}
-		disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceDiskModel{}.attrTypes()}, disks)
-		data.Disks = disksListValue
-		diags.Append(disksDiagnostic...)
+		disk := spotInstanceResourceDiskModel{
+			Id:         types.Int64Value(int64(*responseDisk.Id)),
+			Type_:      types.StringValue(*responseDisk.Type),
+			TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
+			SizeGb:     types.Int64Value(int64(*responseDisk.SizeGb)),
+			IsBootable: types.BoolValue(*responseDisk.IsBootable),
+		}
+		disks = append(disks, disk)
 	}
+	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceDiskModel{}.attrTypes()}, disks)
+	data.Disks = disksListValue
+	diags.Append(disksDiagnostic...)
 
-	if spotInstance.Networks != nil {
-		var networks []spotInstanceResourceNetworkModel
-		for _, responseNetwork := range spotInstance.Networks {
-			network := spotInstanceResourceNetworkModel{
-				Id:            types.Int64Value(int64(*responseNetwork.Id)),
-				Ip:            types.StringPointerValue(responseNetwork.Ip),
-				NetworkTypeId: types.Int64Value(int64(*responseNetwork.NetworkTypeId)),
-				NetworkType:   types.StringValue(*responseNetwork.NetworkType),
-			}
-			networks = append(networks, network)
+	var networks []spotInstanceResourceNetworkModel
+	for _, responseNetwork := range spotInstance.Networks {
+		network := spotInstanceResourceNetworkModel{
+			Id:            types.Int64Value(int64(*responseNetwork.Id)),
+			Ip:            types.StringPointerValue(responseNetwork.Ip),
+			NetworkTypeId: types.Int64Value(int64(*responseNetwork.NetworkTypeId)),
+			NetworkType:   types.StringValue(*responseNetwork.NetworkType),
 		}
-		networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceNetworkModel{}.attrTypes()}, networks)
-		data.Networks = networksListValue
-		diags.Append(networksDiagnostic...)
+		networks = append(networks, network)
 	}
+	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceNetworkModel{}.attrTypes()}, networks)
+	data.Networks = networksListValue
+	diags.Append(networksDiagnostic...)
 	data.Vcpu = types.Int64Value(int64(*spotInstance.VCpu))
 	data.VcpuType = types.StringValue(*spotInstance.VCpuType)
 	if spotInstance.CloudNetworkType != nil {
@@ -478,9 +492,7 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstan
 	data.RamGb = types.Int64Value(int64(*spotInstance.RamGb))
 	data.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
 	data.OsId = types.Int64Value(int64(*spotInstance.Os.Id))
-	if spotInstance.DataCenter != nil {
-		data.DataCenterId = types.StringValue(*spotInstance.DataCenter.Id)
-	}
+	data.DataCenterId = types.StringValue(*spotInstance.DataCenter.Id)
 }
 
 func (o spotInstanceResourceCostModel) attrTypes() map[string]attr.Type {

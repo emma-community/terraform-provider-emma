@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	emmaSdk "github.com/emma-community/emma-go-sdk"
+	emma "github.com/emma-community/terraform-provider-emma/internal/emma/validation"
 	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"strconv"
@@ -56,12 +58,14 @@ func (r *sshKeyResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.NotBlankString{}},
 			},
 			"key": schema.StringAttribute{
 				MarkdownDescription: "SshKey key configurable attribute",
 				Computed:            true,
 				Required:            false,
 				Optional:            true,
+				Validators:          []validator.String{emma.NotEmptyString{}},
 			},
 			"fingerprint": schema.StringAttribute{
 				MarkdownDescription: "SshKey fingerprint configurable attribute",
@@ -72,6 +76,7 @@ func (r *sshKeyResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Computed:            true,
 				Required:            false,
 				Optional:            true,
+				Validators:          []validator.String{emma.KeyType{}},
 			},
 			"private_key": schema.StringAttribute{
 				MarkdownDescription: "SshKey private_key configurable attribute",

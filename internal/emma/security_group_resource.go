@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	emmaSdk "github.com/emma-community/emma-go-sdk"
+	emma "github.com/emma-community/terraform-provider-emma/internal/emma/validation"
 	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"strconv"
@@ -66,6 +68,7 @@ func (r *securityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 				Computed:            false,
 				Required:            true,
 				Optional:            false,
+				Validators:          []validator.String{emma.NotEmptyString{}},
 			},
 			"synchronization_status": schema.StringAttribute{
 				MarkdownDescription: "SecurityGroup synchronization_status configurable attribute",
@@ -82,9 +85,10 @@ func (r *securityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 				Optional:            true,
 			},
 			"rules": schema.ListNestedAttribute{
-				Computed: false,
-				Required: true,
-				Optional: false,
+				Computed:   false,
+				Required:   true,
+				Optional:   false,
+				Validators: []validator.List{emma.NotEmptyList{}},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"direction": schema.StringAttribute{
@@ -92,24 +96,28 @@ func (r *securityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 							Computed:            false,
 							Required:            true,
 							Optional:            false,
+							Validators:          []validator.String{emma.Direction{}},
 						},
 						"protocol": schema.StringAttribute{
 							MarkdownDescription: "SecurityGroup rules protocol configurable attribute",
 							Computed:            false,
 							Required:            true,
 							Optional:            false,
+							Validators:          []validator.String{emma.Protocol{}},
 						},
 						"ports": schema.StringAttribute{
 							MarkdownDescription: "SecurityGroup rules ports configurable attribute",
 							Computed:            false,
 							Required:            true,
 							Optional:            false,
+							Validators:          []validator.String{emma.PortRange{}},
 						},
 						"ip_range": schema.StringAttribute{
 							MarkdownDescription: "SecurityGroup rules ip_range configurable attribute",
 							Computed:            false,
 							Required:            true,
 							Optional:            false,
+							Validators:          []validator.String{emma.IpRange{}},
 						},
 					},
 				},

@@ -3,13 +3,13 @@ package emma
 import (
 	"context"
 	"fmt"
+	"github.com/emma-community/terraform-provider-emma/tools"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	emmaSdk "github.com/emma-community/emma-go-sdk"
-	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -27,7 +27,7 @@ type locationDataSource struct {
 
 // locationDataSourceModel describes the data source data model.
 type locationDataSourceModel struct {
-	Id   types.String `tfsdk:"id"`
+	Id   types.Int64  `tfsdk:"id"`
 	Name types.String `tfsdk:"name"`
 }
 
@@ -41,7 +41,7 @@ func (d *locationDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 		MarkdownDescription: "Provider data source",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
+			"id": schema.Int64Attribute{
 				MarkdownDescription: "Provider id",
 				Computed:            true,
 			},
@@ -60,18 +60,13 @@ func (d *locationDataSource) Configure(ctx context.Context, req datasource.Confi
 	if req.ProviderData == nil {
 		return
 	}
-
 	client, ok := req.ProviderData.(*Client)
-
 	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
-
+		resp.Diagnostics.AddError("Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.",
+				req.ProviderData))
 		return
 	}
-
 	d.apiClient = client.apiClient
 	d.token = client.token
 }
@@ -86,14 +81,18 @@ func (d *locationDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
+	tflog.Info(ctx, "Read location")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
-	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, d.token.AccessToken)
+	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
 	request := d.apiClient.LocationsAPI.GetLocations(auth)
 	request = request.Name(data.Name.ValueString())
-	locations, _, err := request.Execute()
+	locations, response, err := request.Execute()
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read location, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error",
+			fmt.Sprintf("Unable to read location, got error: %s",
+				tools.ExtractErrorMessage(response)))
 		return
 	}
 	if len(locations) == 0 {
@@ -107,15 +106,11 @@ func (d *locationDataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	ConvertLocation(&data, &locations[0])
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "read location data source")
-
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func ConvertLocation(locationModel *locationDataSourceModel, location *emmaSdk.Location) {
-	locationModel.Id = types.StringValue(tools.ConvertToString(location.Id))
-	locationModel.Name = types.StringValue(tools.ConvertToString(location.Name))
+	locationModel.Id = types.Int64Value(int64(*location.Id))
+	locationModel.Name = types.StringValue(*location.Name)
 }

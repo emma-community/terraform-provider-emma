@@ -16,7 +16,7 @@ define your infrastructure as code and easily provision, update, and manage reso
 3. **Install the Provider**: Move the downloaded binary to the Terraform plugins directory:
    ```bash
    mv terraform-provider-emma ~/.terraform.d/plugins/
-    ```
+   ```
 
 ## Usage
 
@@ -41,7 +41,7 @@ of provisioning a virtual machine:
       ram_gb             = 1
       volume_type        = "ssd"
       volume_gb          = 8
-      ssh_key_id         = emma_ssh_key.ssh_key.id
+      ssh_key_id         = 1
    }
    ```
 

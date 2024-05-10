@@ -3,9 +3,9 @@ package emma
 import (
 	"context"
 	"fmt"
+	"github.com/emma-community/terraform-provider-emma/tools"
 
 	emmaSdk "github.com/emma-community/emma-go-sdk"
-	"github.com/emma-community/terraform-provider-emma/tools"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -27,7 +27,7 @@ type operatingSystemDataSource struct {
 
 // operatingSystemDataSourceModel describes the data source data model.
 type operatingSystemDataSourceModel struct {
-	Id           types.String `tfsdk:"id"`
+	Id           types.Int64  `tfsdk:"id"`
 	Family       types.String `tfsdk:"family"`
 	Type         types.String `tfsdk:"type"`
 	Architecture types.String `tfsdk:"architecture"`
@@ -44,7 +44,7 @@ func (d *operatingSystemDataSource) Schema(ctx context.Context, req datasource.S
 		MarkdownDescription: "Operating system data source",
 
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
+			"id": schema.Int64Attribute{
 				MarkdownDescription: "Operating system id",
 				Computed:            true,
 			},
@@ -79,18 +79,13 @@ func (d *operatingSystemDataSource) Configure(ctx context.Context, req datasourc
 	if req.ProviderData == nil {
 		return
 	}
-
 	client, ok := req.ProviderData.(*Client)
-
 	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
-
+		resp.Diagnostics.AddError("Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.",
+				req.ProviderData))
 		return
 	}
-
 	d.apiClient = client.apiClient
 	d.token = client.token
 }
@@ -105,16 +100,20 @@ func (d *operatingSystemDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
+	tflog.Info(ctx, "Read operating system")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
-	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, d.token.AccessToken)
+	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
 	request := d.apiClient.OperatingSystemsAPI.GetOperatingSystems(auth)
 	request = request.Version(data.Version.ValueString())
 	request = request.Type_(data.Type.ValueString())
 	request = request.Architecture(data.Architecture.ValueString())
-	operatingSystems, _, err := request.Execute()
+	operatingSystems, response, err := request.Execute()
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read operating system, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error",
+			fmt.Sprintf("Unable to read operating system, got error: %s",
+				tools.ExtractErrorMessage(response)))
 		return
 	}
 	if len(operatingSystems) == 0 {
@@ -128,18 +127,14 @@ func (d *operatingSystemDataSource) Read(ctx context.Context, req datasource.Rea
 
 	ConvertOperatingSystem(&data, &operatingSystems[0])
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "read operating system data source")
-
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func ConvertOperatingSystem(operatingSystemModel *operatingSystemDataSourceModel, operatingSystem *emmaSdk.OperatingSystem) {
-	operatingSystemModel.Id = types.StringValue(tools.ConvertToString(operatingSystem.Id))
-	operatingSystemModel.Family = types.StringValue(tools.ConvertToString(operatingSystem.Family))
-	operatingSystemModel.Type = types.StringValue(tools.ConvertToString(operatingSystem.Type))
-	operatingSystemModel.Architecture = types.StringValue(tools.ConvertToString(operatingSystem.Architecture))
-	operatingSystemModel.Version = types.StringValue(tools.ConvertToString(operatingSystem.Version))
+	operatingSystemModel.Id = types.Int64Value(int64(*operatingSystem.Id))
+	operatingSystemModel.Family = types.StringValue(*operatingSystem.Family)
+	operatingSystemModel.Type = types.StringValue(*operatingSystem.Type)
+	operatingSystemModel.Architecture = types.StringValue(*operatingSystem.Architecture)
+	operatingSystemModel.Version = types.StringValue(*operatingSystem.Version)
 }

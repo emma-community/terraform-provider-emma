@@ -27,4 +27,4 @@ data "emma_provider" "aws" {
 
 ### Read-Only
 
-- `id` (String) Provider id
+- `id` (Number) Provider id

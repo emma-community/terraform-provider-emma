@@ -27,4 +27,4 @@ data "emma_location" "stockholm" {
 
 ### Read-Only
 
-- `id` (String) Provider id
+- `id` (Number) Provider id

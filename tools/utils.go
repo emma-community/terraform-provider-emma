@@ -1,85 +1,34 @@
 package tools
 
 import (
-	"fmt"
+	"encoding/json"
+	"io"
+	"net/http"
 	"strconv"
 )
 
-func ConvertToString(val interface{}) string {
-	if val == nil {
+type ErrorResponse struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func ExtractErrorMessage(response *http.Response) string {
+	responseBytes, err := io.ReadAll(response.Body)
+	if err != nil {
 		return ""
 	}
-	str, ok := val.(string)
-	if !ok {
-		return fmt.Sprintf("%v", val)
+	data := ErrorResponse{}
+	err = json.Unmarshal(responseBytes, &data)
+	if err != nil {
+		return ""
 	}
-	return str
+	return data.Message
 }
 
-func ConvertToInt64(val interface{}) int64 {
-	if val == nil {
-		return 0
+func StringToInt32(value string) int32 {
+	num, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		panic(err)
 	}
-	switch v := val.(type) {
-	case float64:
-		return int64(v)
-	case int:
-		return int64(v)
-	case int8:
-		return int64(v)
-	case int16:
-		return int64(v)
-	case int32:
-		return int64(v)
-	case int64:
-		return v
-	case string:
-		i, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return 0
-		}
-		return i
-	default:
-		return 0
-	}
-}
-
-func ConvertToFloat64(val interface{}) float64 {
-	if val == nil {
-		return 0
-	}
-	switch v := val.(type) {
-	case float64:
-		return float64(v)
-	case int:
-		return float64(v)
-	case int8:
-		return float64(v)
-	case int16:
-		return float64(v)
-	case int32:
-		return float64(v)
-	case int64:
-		return float64(v)
-	case string:
-		i, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return 0
-		}
-		return float64(i)
-	default:
-		return 0
-	}
-}
-
-func ConvertToBool(val interface{}) bool {
-	if val == nil {
-		return false
-	}
-	switch v := val.(type) {
-	case bool:
-		return v
-	default:
-		return false
-	}
+	return int32(num)
 }

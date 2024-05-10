@@ -86,10 +86,9 @@ func (d *dataCenterDataSource) Configure(ctx context.Context, req datasource.Con
 	}
 	client, ok := req.ProviderData.(*Client)
 	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
-		)
+		resp.Diagnostics.AddError("Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.",
+				req.ProviderData))
 		return
 	}
 	d.apiClient = client.apiClient
@@ -105,9 +104,11 @@ func (d *dataCenterDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		return
 	}
 
+	tflog.Info(ctx, "Read data center")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
-	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, d.token.AccessToken)
+	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
 	request := d.apiClient.DataCentersAPI.GetDataCenters(auth)
 	if !data.LocationId.IsUnknown() && !data.LocationId.IsNull() {
 		request = request.LocationId(int32(data.LocationId.ValueInt64()))
@@ -118,9 +119,12 @@ func (d *dataCenterDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	if !data.Name.IsUnknown() && !data.Name.IsNull() {
 		request = request.DataCenterName(data.Name.ValueString())
 	}
-	dataCenters, _, err := request.Execute()
+	dataCenters, response, err := request.Execute()
+
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read data center, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error",
+			fmt.Sprintf("Unable to read data center, got error: %s",
+				tools.ExtractErrorMessage(response)))
 		return
 	}
 
@@ -135,19 +139,15 @@ func (d *dataCenterDataSource) Read(ctx context.Context, req datasource.ReadRequ
 
 	ConvertDataCenter(&data, &dataCenters[0])
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "read data center data source")
-
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func ConvertDataCenter(dataCenterModel *dataCenterDataSourceModel, dataCenter *emmaSdk.DataCenter) {
-	dataCenterModel.Id = types.StringValue(tools.ConvertToString(dataCenter.Id))
-	dataCenterModel.Name = types.StringValue(tools.ConvertToString(dataCenter.Name))
-	dataCenterModel.ProviderName = types.StringValue(tools.ConvertToString(dataCenter.ProviderName))
-	dataCenterModel.ProviderId = types.Int64Value(tools.ConvertToInt64(dataCenter.ProviderId))
-	dataCenterModel.LocationId = types.Int64Value(tools.ConvertToInt64(dataCenter.LocationId))
-	dataCenterModel.LocationName = types.StringValue(tools.ConvertToString(dataCenter.LocationName))
+	dataCenterModel.Id = types.StringValue(*dataCenter.Id)
+	dataCenterModel.Name = types.StringValue(*dataCenter.Name)
+	dataCenterModel.ProviderName = types.StringValue(*dataCenter.ProviderName)
+	dataCenterModel.ProviderId = types.Int64Value(int64(*dataCenter.ProviderId))
+	dataCenterModel.LocationId = types.Int64Value(int64(*dataCenter.LocationId))
+	dataCenterModel.LocationName = types.StringValue(*dataCenter.LocationName)
 }

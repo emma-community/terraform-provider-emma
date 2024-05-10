@@ -2,9 +2,9 @@ package emma
 
 import (
 	"context"
-	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"os"
 
 	emmaSdk "github.com/emma-community/emma-go-sdk"
@@ -65,6 +65,7 @@ func (p *Provider) Schema(_ context.Context, _ provider.SchemaRequest, resp *pro
 // Configure prepares a EMMA API client for data sources and resources.
 func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	// Retrieve provider data from configuration
+	tflog.Info(ctx, "Configuring EMMA client")
 	var config providerModel
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
@@ -80,8 +81,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			path.Root("clientId"),
 			"Unknown EMMA API ClientId",
 			"The provider cannot create the EMMA API client as there is an unknown configuration value for the EMMA API clientId. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the EMMA_CLIENT_ID environment variable.",
-		)
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the EMMA_CLIENT_ID environment variable.")
 	}
 
 	if config.ClientSecret.IsUnknown() {
@@ -89,8 +89,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			path.Root("clientSecret"),
 			"Unknown EMMA API ClientSecret",
 			"The provider cannot create the EMMA API client as there is an unknown configuration value for the EMMA API clientSecret. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the EMMA_CLIENT_SECRET environment variable.",
-		)
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the EMMA_CLIENT_SECRET environment variable.")
 	}
 
 	if resp.Diagnostics.HasError() {
@@ -124,8 +123,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			"Missing EMMA API Username",
 			"The provider cannot create the EMMA API client as there is a missing or empty value for the EMMA API clientId. "+
 				"Set the clientId value in the configuration or use the EMMA_CLIENT_ID environment variable. "+
-				"If either is already set, ensure the value is not empty.",
-		)
+				"If either is already set, ensure the value is not empty.")
 	}
 
 	if clientSecret == "" {
@@ -134,8 +132,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			"Missing EMMA API Password",
 			"The provider cannot create the EMMA API client as there is a missing or empty value for the EMMA API clientSecret. "+
 				"Set the clientSecret value in the configuration or use the EMMA_CLIENT_SECRET environment variable. "+
-				"If either is already set, ensure the value is not empty.",
-		)
+				"If either is already set, ensure the value is not empty.")
 	}
 	host := os.Getenv("EMMA_HOST")
 	if !config.Host.IsNull() {
@@ -170,13 +167,11 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			"Unable to authenticate EMMA API Client",
 			"An unexpected error occurred when creating the EMMA API client. "+
 				"If the error is not clear, please contact the provider developers.\n\n"+
-				"EMMA Client Error: "+err.Error(),
-		)
+				"EMMA Client Error: "+err.Error())
 		return
 	}
-	fmt.Println("Token received successfully")
 	providerClient := Client{apiClient: apiClient, token: token}
-
+	tflog.Info(ctx, "Configured EMMA client")
 	// Make the EMMA client available during DataSource and Resource
 	// type Configure methods.
 	resp.DataSourceData = &providerClient

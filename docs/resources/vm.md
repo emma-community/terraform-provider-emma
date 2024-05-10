@@ -14,16 +14,16 @@ Vm resource
 
 ```terraform
 resource "emma_vm" "vm" {
-  name               = "vm-test1"
-  data_center_id     = "data_center_id"
-  os_id              = "os_id"
+  name               = "Example"
+  data_center_id     = data.emma_data_center.aws.id
+  os_id              = data.emma_operating_system.ubuntu.id
   cloud_network_type = "multi-cloud"
   vcpu_type          = "shared"
   vcpu               = 2
   ram_gb             = 1
   volume_type        = "ssd"
   volume_gb          = 8
-  ssh_key_id         = "ssh_key_id"
+  ssh_key_id         = 1
 }
 ```
 
@@ -45,25 +45,15 @@ resource "emma_vm" "vm" {
 
 ### Optional
 
-- `networks` (Attributes List) (see [below for nested schema](#nestedatt--networks))
+- `security_group_id` (Number) Vm security_group_id configurable attribute
 
 ### Read-Only
 
 - `cost` (Attributes) (see [below for nested schema](#nestedatt--cost))
 - `disks` (Attributes List) (see [below for nested schema](#nestedatt--disks))
-- `id` (Number) Vm id configurable attribute
+- `id` (String) Vm id configurable attribute
+- `networks` (Attributes List) (see [below for nested schema](#nestedatt--networks))
 - `status` (String) Vm status configurable attribute
-
-<a id="nestedatt--networks"></a>
-### Nested Schema for `networks`
-
-Read-Only:
-
-- `id` (Number) Vm networks id configurable attribute
-- `ip` (String) Vm networks ip configurable attribute
-- `network_type` (String) Vm networks network_type configurable attribute
-- `network_type_id` (Number) Vm networks network_type_id configurable attribute
-
 
 <a id="nestedatt--cost"></a>
 ### Nested Schema for `cost`
@@ -85,3 +75,14 @@ Read-Only:
 - `size_gb` (Number) Vm disks size_gb configurable attribute
 - `type` (String) Vm disks type configurable attribute
 - `type_id` (Number) Vm disks type_id configurable attribute
+
+
+<a id="nestedatt--networks"></a>
+### Nested Schema for `networks`
+
+Read-Only:
+
+- `id` (Number) Vm networks id configurable attribute
+- `ip` (String) Vm networks ip configurable attribute
+- `network_type` (String) Vm networks network_type configurable attribute
+- `network_type_id` (Number) Vm networks network_type_id configurable attribute

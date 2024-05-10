@@ -261,6 +261,8 @@ func (r *vmResource) Create(ctx context.Context, req resource.CreateRequest, res
 		return
 	}
 
+	tflog.Info(ctx, "Create vm")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	var vmCreateRequest emmaSdk.VmCreate
@@ -277,10 +279,6 @@ func (r *vmResource) Create(ctx context.Context, req resource.CreateRequest, res
 
 	ConvertVmResponseToResource(ctx, &data, vm, resp.Diagnostics)
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "created a vm resource")
-
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -294,6 +292,8 @@ func (r *vmResource) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Read vm")
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
@@ -324,6 +324,8 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Update vm")
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
@@ -405,6 +407,8 @@ func (r *vmResource) Delete(ctx context.Context, req resource.DeleteRequest, res
 		return
 	}
 
+	tflog.Info(ctx, "Delete vm")
+
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 	_, response, err := r.apiClient.VirtualMachinesAPI.VmDelete(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 
@@ -419,6 +423,8 @@ func (r *vmResource) Delete(ctx context.Context, req resource.DeleteRequest, res
 }
 
 func (r *vmResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	tflog.Info(ctx, "Import vm")
+
 	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 

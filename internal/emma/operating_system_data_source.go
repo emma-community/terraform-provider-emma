@@ -100,6 +100,8 @@ func (d *operatingSystemDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
+	tflog.Info(ctx, "Read operating system")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
@@ -124,10 +126,6 @@ func (d *operatingSystemDataSource) Read(ctx context.Context, req datasource.Rea
 	}
 
 	ConvertOperatingSystem(&data, &operatingSystems[0])
-
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "read operating system data source")
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

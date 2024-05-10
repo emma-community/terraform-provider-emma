@@ -2,9 +2,9 @@ package emma
 
 import (
 	"context"
-	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"os"
 
 	emmaSdk "github.com/emma-community/emma-go-sdk"
@@ -65,6 +65,7 @@ func (p *Provider) Schema(_ context.Context, _ provider.SchemaRequest, resp *pro
 // Configure prepares a EMMA API client for data sources and resources.
 func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	// Retrieve provider data from configuration
+	tflog.Info(ctx, "Configuring EMMA client")
 	var config providerModel
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
@@ -169,9 +170,8 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 				"EMMA Client Error: "+err.Error())
 		return
 	}
-	fmt.Println("Token received successfully")
 	providerClient := Client{apiClient: apiClient, token: token}
-
+	tflog.Info(ctx, "Configured EMMA client")
 	// Make the EMMA client available during DataSource and Resource
 	// type Configure methods.
 	resp.DataSourceData = &providerClient

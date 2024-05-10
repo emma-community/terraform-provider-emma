@@ -269,6 +269,8 @@ func (r *spotInstanceResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	tflog.Info(ctx, "Create spot instance")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	var spotInstanceCreateRequest emmaSdk.SpotCreate
@@ -285,10 +287,6 @@ func (r *spotInstanceResource) Create(ctx context.Context, req resource.CreateRe
 
 	ConvertSpotInstanceResponseToResource(ctx, &data, spotInstance, resp.Diagnostics)
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "created a spotInstance resource")
-
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -302,6 +300,8 @@ func (r *spotInstanceResource) Read(ctx context.Context, req resource.ReadReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Read spot instance")
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
@@ -332,6 +332,8 @@ func (r *spotInstanceResource) Update(ctx context.Context, req resource.UpdateRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Update spot instance")
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
@@ -394,6 +396,8 @@ func (r *spotInstanceResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
+	tflog.Info(ctx, "Delete spot instance")
+
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 	_, response, err := r.apiClient.SpotInstancesAPI.SpotDelete(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 
@@ -408,6 +412,8 @@ func (r *spotInstanceResource) Delete(ctx context.Context, req resource.DeleteRe
 }
 
 func (r *spotInstanceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	tflog.Info(ctx, "Import spot instance")
+
 	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 

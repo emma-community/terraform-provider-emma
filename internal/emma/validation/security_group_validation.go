@@ -119,6 +119,7 @@ func isValidPortsValue(ports string) bool {
 		if end < start {
 			return false
 		}
+		return true
 	}
 	return isValidSinglePortValue(ports)
 }

@@ -81,6 +81,8 @@ func (d *providerDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
+	tflog.Info(ctx, "Read provider")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
@@ -103,10 +105,6 @@ func (d *providerDataSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	ConvertProvider(&data, &providers[0])
-
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "read provider data source")
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

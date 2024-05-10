@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/emma-community/terraform-provider-emma/tools"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	emmaSdk "github.com/emma-community/emma-go-sdk"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -81,6 +81,8 @@ func (d *locationDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
+	tflog.Info(ctx, "Read location")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
@@ -103,10 +105,6 @@ func (d *locationDataSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	ConvertLocation(&data, &locations[0])
-
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "read location data source")
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

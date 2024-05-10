@@ -152,6 +152,8 @@ func (r *securityGroupResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
+	tflog.Info(ctx, "Create security group")
+
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
 	var securityGroupRequest emmaSdk.SecurityGroupRequest
@@ -172,10 +174,6 @@ func (r *securityGroupResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "created a security group resource")
-
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -189,6 +187,8 @@ func (r *securityGroupResource) Read(ctx context.Context, req resource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Read security group")
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
@@ -223,6 +223,8 @@ func (r *securityGroupResource) Update(ctx context.Context, req resource.UpdateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Update security group")
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client planData and make a call using it.
@@ -260,10 +262,6 @@ func (r *securityGroupResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "updated a security group resource")
-
 	// Save planData into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
 }
@@ -277,6 +275,8 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Delete security group")
 
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 	i := 0
@@ -308,6 +308,8 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 }
 
 func (r *securityGroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	tflog.Info(ctx, "Import security group")
+
 	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 

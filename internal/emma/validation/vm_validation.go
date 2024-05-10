@@ -51,11 +51,11 @@ type VolumeType struct {
 }
 
 func (v VolumeType) Description(ctx context.Context) string {
-	return "volume_type can contain shared, standard or hpc"
+	return "volume_type can contain ssh or ssd-plus"
 }
 
 func (v VolumeType) MarkdownDescription(ctx context.Context) string {
-	return "volume_type can contain shared, standard or hpc"
+	return "volume_type can contain ssh or ssd-plus"
 }
 
 func (v VolumeType) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {

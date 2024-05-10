@@ -109,16 +109,18 @@ func (r *sshKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	if !data.Key.IsUnknown() && !data.KeyType.IsUnknown() {
-		resp.Diagnostics.AddError("Client Error",
+		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to create ssh key: contradicting fields: key_type, key"))
 	} else if data.Key.IsUnknown() && data.KeyType.IsUnknown() {
-		resp.Diagnostics.AddError("Client Error",
+		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to create ssh key: key or key_type is required"))
 	}
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Create ssh key")
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
@@ -136,10 +138,6 @@ func (r *sshKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	ConvertSshKey201ResponseToResource(&data, sshKey)
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "created a ssh key resource")
-
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -153,6 +151,8 @@ func (r *sshKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Read ssh key")
 
 	// If applicable, this is a great opportunity to initialize any necessary
 	// provider client data and make a call using it.
@@ -181,12 +181,14 @@ func (r *sshKeyResource) Update(ctx context.Context, req resource.UpdateRequest,
 	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
 	if !planData.Key.IsUnknown() && !planData.KeyType.IsUnknown() {
-		resp.Diagnostics.AddError("Client Error",
+		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to update ssh key: contradicting fields: key_type, key"))
 	} else if planData.Key.IsUnknown() && planData.KeyType.IsUnknown() {
-		resp.Diagnostics.AddError("Client Error",
+		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to update ssh key: key or key_type is required"))
 	}
+
+	tflog.Info(ctx, "Update ssh key")
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -227,10 +229,6 @@ func (r *sshKeyResource) Update(ctx context.Context, req resource.UpdateRequest,
 		ConvertSshKeyResponseToResource(&stateData, sshKey)
 	}
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "updated a ssh key resource")
-
 	// Save planData into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
 }
@@ -240,9 +238,13 @@ func (r *sshKeyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	// Read Terraform prior state data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	tflog.Info(ctx, "Delete ssh key")
+
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 	Delete(auth, r, data, resp.Diagnostics)
 }
@@ -261,6 +263,8 @@ func Delete(ctx context.Context, r *sshKeyResource, stateData sshKeyResourceMode
 }
 
 func (r *sshKeyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	tflog.Info(ctx, "Import ssh key")
+
 	// Retrieve import ID and save to id attribute
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 

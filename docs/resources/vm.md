@@ -23,7 +23,8 @@ resource "emma_vm" "vm" {
   ram_gb             = 1
   volume_type        = "ssd"
   volume_gb          = 8
-  ssh_key_id         = 1
+  security_group_id  = emma_security_group.security_group.id
+  ssh_key_id         = emma_ssh_key.ssh_key.id
 }
 ```
 

@@ -8,6 +8,9 @@ define your infrastructure as code and easily provision, update, and manage reso
 ## Features
 
 - Provision and manage virtual machines.
+- Utilize spot instances for cost-effective computing.
+- Manage SSH keys for secure access to instances.
+- Define and manage security groups to control network traffic.
 
 ## Installation
 
@@ -41,7 +44,7 @@ of provisioning a virtual machine:
       ram_gb             = 1
       volume_type        = "ssd"
       volume_gb          = 8
-      ssh_key_id         = 1
+      ssh_key_id         = emma_ssh_key.ssh_key.id
    }
    ```
 

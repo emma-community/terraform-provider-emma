@@ -1,9 +1,10 @@
-# Custom Terraform Provider for Emma
+# Terraform Provider Emma
 
 ## Overview
 
-This Terraform provider allows you to manage resources within your Emma infrastructure. By using Terraform, you can 
-define your infrastructure as code and easily provision, update, and manage resources in a repeatable and automated manner.
+This [Terraform Provider Emma](https://registry.terraform.io/providers/emma-community/emma/latest) allows you to manage 
+resources within your Emma infrastructure. By using Terraform, you can define your infrastructure as code and easily 
+provision, update, and manage resources in a repeatable and automated manner.
 
 ## Features
 
@@ -12,24 +13,26 @@ define your infrastructure as code and easily provision, update, and manage reso
 ## Installation
 
 1. **Prerequisites**: Ensure you have Terraform installed on your system. You can download it from the [Terraform website](https://developer.hashicorp.com/terraform/install).
-2. **Download the Provider**: Download the latest release of the provider binary from the releases page.
-3. **Install the Provider**: Move the downloaded binary to the Terraform plugins directory:
-   ```bash
-   mv terraform-provider-emma ~/.terraform.d/plugins/
-   ```
-
-## Usage
-
-1. **Define Provider Configuration**: Add the provider configuration to your Terraform configuration file (e.g., main.tf):
+2. **Define Provider Configuration**: To install this provider, copy and paste this code into your Terraform configuration. 
+Then, run `terraform init`:
    ```hcl
+   terraform {
+     required_providers {
+       emma = {
+         source = "emma-community/emma"
+         version = "0.0.1-alpha"
+         }
+      }
+   }
+
    provider "emma" {
-        client_id     = "your client id"
-        client_secret = "your client secret"
+     client_id     = "your client id"
+     client_secret = "your client secret"
    }
    ```
 
-2. **Define Resources**: Define the resources you want to manage in your Terraform configuration. Here's an example 
-of provisioning a virtual machine:
+3. **Define Resources**: Define the resources you want to manage in your Terraform configuration. Here's an example 
+of provisioning a virtual machine, you can find more documentation on the [terraform provider page](https://registry.terraform.io/providers/emma-community/emma/latest/docs):
    ```hcl
    resource "emma_vm" "vm" {
       name               = "Example"
@@ -45,7 +48,7 @@ of provisioning a virtual machine:
    }
    ```
 
-3. **Run Terraform Commands**: Use Terraform commands (`terraform init`, `terraform plan`, `terraform apply`, etc.) 
+4. **Run Terraform Commands**: Use Terraform commands (`terraform plan`, `terraform apply`, etc.) 
 to apply your configuration and manage your infrastructure.
 
 ## Authentication

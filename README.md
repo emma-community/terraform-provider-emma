@@ -3,8 +3,10 @@
 ## Overview
 
 This [Terraform Provider Emma](https://registry.terraform.io/providers/emma-community/emma/latest) allows you to manage 
-resources within your Emma infrastructure. By using Terraform, you can define your infrastructure as code and easily 
-provision, update, and manage resources in a repeatable and automated manner.
+multi-cloud resources. The [emma platform](https://www.emma.ms/) empowers you to effortlessly deploy and manage cloud 
+resources across diverse environments, spanning on-premises, private, and public clouds. Whether you're a seasoned cloud 
+professional honing your multi-cloud setup or diving into cloud management for the first time, our cloud-agnostic 
+approach guarantees freedom to leverage the right cloud services you need.
 
 ## Features
 

@@ -281,6 +281,13 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 	i := 0
 	for i < 60 {
+		i++
+		securityGroup, response, err := r.apiClient.SecurityGroupsAPI.GetSecurityGroup(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
+		if *securityGroup.SynchronizationStatus != "SYNCHRONIZED" || *securityGroup.RecomposingStatus != "RECOMPOSED" {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
 		securityGroupInstances, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstances(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error",
@@ -289,11 +296,11 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 			return
 		}
 
-		if len(securityGroupInstances) == 0 {
-			break
+		if len(securityGroupInstances) != 0 {
+			time.Sleep(5 * time.Second)
+			continue
 		}
-		i++
-		time.Sleep(5 * time.Second)
+		break
 	}
 
 	_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupDelete(auth, tools.StringToInt32(data.Id.ValueString())).Execute()

@@ -37,8 +37,8 @@ type vmResourceModel struct {
 	DataCenterId     types.String `tfsdk:"data_center_id"`
 	OsId             types.Int64  `tfsdk:"os_id"`
 	CloudNetworkType types.String `tfsdk:"cloud_network_type"`
-	VcpuType         types.String `tfsdk:"vcpu_type"`
-	Vcpu             types.Int64  `tfsdk:"vcpu"`
+	VCpuType         types.String `tfsdk:"vcpu_type"`
+	VCpu             types.Int64  `tfsdk:"vcpu"`
 	RamGb            types.Int64  `tfsdk:"ram_gb"`
 	VolumeType       types.String `tfsdk:"volume_type"`
 	VolumeGb         types.Int64  `tfsdk:"volume_gb"`
@@ -371,13 +371,13 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 			}
 		}
 
-		if !planData.RamGb.Equal(stateData.RamGb) || !planData.Vcpu.Equal(stateData.Vcpu) ||
-			!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VcpuType.Equal(stateData.VcpuType) {
+		if !planData.RamGb.Equal(stateData.RamGb) || !planData.VCpu.Equal(stateData.VCpu) ||
+			!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VCpuType.Equal(stateData.VCpuType) {
 
 			vmActionEditHardwareRequest := emmaSdk.VmActionsRequest{}
-			vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.Vcpu.ValueInt64()),
+			vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.VCpu.ValueInt64()),
 				int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
-			vmEditHardware.VCpuType = planData.VcpuType.ValueStringPointer()
+			vmEditHardware.VCpuType = planData.VCpuType.ValueStringPointer()
 			vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
 			vm, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth,
 				tools.StringToInt32(stateData.Id.ValueString())).VmActionsRequest(vmActionEditHardwareRequest).Execute()
@@ -437,8 +437,8 @@ func ConvertToVmCreateRequest(data vmResourceModel, vmCreate *emmaSdk.VmCreate) 
 	vmCreate.DataCenterId = data.DataCenterId.ValueString()
 	vmCreate.OsId = int32(data.OsId.ValueInt64())
 	vmCreate.CloudNetworkType = data.CloudNetworkType.ValueString()
-	vmCreate.VCpuType = data.VcpuType.ValueString()
-	vmCreate.VCpu = int32(data.Vcpu.ValueInt64())
+	vmCreate.VCpuType = data.VCpuType.ValueString()
+	vmCreate.VCpu = int32(data.VCpu.ValueInt64())
 	vmCreate.RamGb = int32(data.RamGb.ValueInt64())
 	vmCreate.VolumeType = data.VolumeType.ValueString()
 	vmCreate.VolumeGb = int32(data.VolumeGb.ValueInt64())
@@ -491,8 +491,8 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResour
 	data.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
 
-	data.Vcpu = planData.Vcpu
-	data.VcpuType = planData.VcpuType
+	data.VCpu = planData.VCpu
+	data.VCpuType = planData.VCpuType
 	data.VolumeGb = planData.VolumeGb
 	data.RamGb = planData.RamGb
 }
@@ -544,8 +544,8 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
 	data.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
-	data.Vcpu = types.Int64Value(int64(*vm.VCpu))
-	data.VcpuType = types.StringValue(*vm.VCpuType)
+	data.VCpu = types.Int64Value(int64(*vm.VCpu))
+	data.VCpuType = types.StringValue(*vm.VCpuType)
 	if vm.CloudNetworkType != nil {
 		data.CloudNetworkType = types.StringValue(*vm.CloudNetworkType)
 	}

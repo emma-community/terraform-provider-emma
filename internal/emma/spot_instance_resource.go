@@ -37,8 +37,8 @@ type spotInstanceResourceModel struct {
 	DataCenterId     types.String  `tfsdk:"data_center_id"`
 	OsId             types.Int64   `tfsdk:"os_id"`
 	CloudNetworkType types.String  `tfsdk:"cloud_network_type"`
-	VcpuType         types.String  `tfsdk:"vcpu_type"`
-	Vcpu             types.Int64   `tfsdk:"vcpu"`
+	VCpuType         types.String  `tfsdk:"vcpu_type"`
+	VCpu             types.Int64   `tfsdk:"vcpu"`
 	RamGb            types.Int64   `tfsdk:"ram_gb"`
 	VolumeType       types.String  `tfsdk:"volume_type"`
 	VolumeGb         types.Int64   `tfsdk:"volume_gb"`
@@ -342,8 +342,8 @@ func (r *spotInstanceResource) Update(ctx context.Context, req resource.UpdateRe
 	if !planData.Name.Equal(stateData.Name) || !planData.OsId.Equal(stateData.OsId) ||
 		!planData.DataCenterId.Equal(stateData.DataCenterId) || !planData.VolumeType.Equal(stateData.VolumeType) ||
 		!planData.CloudNetworkType.Equal(stateData.CloudNetworkType) || !planData.SshKeyId.Equal(stateData.SshKeyId) ||
-		!planData.RamGb.Equal(stateData.RamGb) || !planData.Vcpu.Equal(stateData.Vcpu) ||
-		!planData.VcpuType.Equal(stateData.VcpuType) || !planData.VolumeGb.Equal(stateData.VolumeGb) {
+		!planData.RamGb.Equal(stateData.RamGb) || !planData.VCpu.Equal(stateData.VCpu) ||
+		!planData.VCpuType.Equal(stateData.VCpuType) || !planData.VolumeGb.Equal(stateData.VolumeGb) {
 
 		var spotCreateRequest emmaSdk.SpotCreate
 		ConvertToSpotInstanceCreateRequest(planData, &spotCreateRequest)
@@ -426,8 +426,8 @@ func ConvertToSpotInstanceCreateRequest(data spotInstanceResourceModel, spotInst
 	spotInstanceCreate.DataCenterId = data.DataCenterId.ValueString()
 	spotInstanceCreate.OsId = int32(data.OsId.ValueInt64())
 	spotInstanceCreate.CloudNetworkType = data.CloudNetworkType.ValueString()
-	spotInstanceCreate.VCpuType = data.VcpuType.ValueString()
-	spotInstanceCreate.VCpu = int32(data.Vcpu.ValueInt64())
+	spotInstanceCreate.VCpuType = data.VCpuType.ValueString()
+	spotInstanceCreate.VCpu = int32(data.VCpu.ValueInt64())
 	spotInstanceCreate.RamGb = int32(data.RamGb.ValueInt64())
 	spotInstanceCreate.VolumeType = data.VolumeType.ValueString()
 	spotInstanceCreate.VolumeGb = int32(data.VolumeGb.ValueInt64())
@@ -486,8 +486,8 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstan
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceNetworkModel{}.attrTypes()}, networks)
 	data.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
-	data.Vcpu = types.Int64Value(int64(*spotInstance.VCpu))
-	data.VcpuType = types.StringValue(*spotInstance.VCpuType)
+	data.VCpu = types.Int64Value(int64(*spotInstance.VCpu))
+	data.VCpuType = types.StringValue(*spotInstance.VCpuType)
 	if spotInstance.CloudNetworkType != nil {
 		data.CloudNetworkType = types.StringValue(*spotInstance.CloudNetworkType)
 	}

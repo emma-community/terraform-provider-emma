@@ -277,7 +277,7 @@ func (r *vmResource) Create(ctx context.Context, req resource.CreateRequest, res
 		return
 	}
 
-	ConvertVmResponseToResource(ctx, &data, vm, resp.Diagnostics)
+	ConvertVmResponseToResource(ctx, &data, nil, vm, resp.Diagnostics)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -307,7 +307,7 @@ func (r *vmResource) Read(ctx context.Context, req resource.ReadRequest, resp *r
 		return
 	}
 
-	ConvertVmResponseToResource(ctx, &data, vm, resp.Diagnostics)
+	ConvertVmResponseToResource(ctx, &data, nil, vm, resp.Diagnostics)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -354,20 +354,25 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 			return
 		}
 
-		ConvertVmResponseToResource(ctx, &stateData, vm, resp.Diagnostics)
+		ConvertVmResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
 
 	} else {
 
 		if !planData.SecurityGroupId.Equal(stateData.SecurityGroupId) {
-			vmId := tools.StringToInt32(stateData.Id.ValueString())
-			securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &vmId}
-			_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
-				int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
-			if err != nil {
-				resp.Diagnostics.AddError("Client Error",
-					fmt.Sprintf("Unable to add virtual machine to security group, got error: %s",
-						tools.ExtractErrorMessage(response)))
-				return
+			if planData.SecurityGroupId.IsUnknown() || planData.SecurityGroupId.IsNull() {
+				stateData.SecurityGroupId = types.Int64Null()
+			} else {
+				vmId := tools.StringToInt32(stateData.Id.ValueString())
+				securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &vmId}
+				_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
+					int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
+				if err != nil {
+					resp.Diagnostics.AddError("Client Error",
+						fmt.Sprintf("Unable to add virtual machine to security group, got error: %s",
+							tools.ExtractErrorMessage(response)))
+					return
+				}
+				stateData.SecurityGroupId = planData.SecurityGroupId
 			}
 		}
 
@@ -449,8 +454,8 @@ func ConvertToVmCreateRequest(data vmResourceModel, vmCreate *emmaSdk.VmCreate) 
 	vmCreate.SshKeyId = int32(data.SshKeyId.ValueInt64())
 }
 
-func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResourceModel, planData *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
-	data.Status = types.StringValue(*vm.Status)
+func ConvertEditVmHardwareResponseToResource(ctx context.Context, stateData *vmResourceModel, planData *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
+	stateData.Status = types.StringValue(*vm.Status)
 
 	vmResourceCost := vmResourceCostModel{
 		Price:    types.Float64Value(float64(*vm.Cost.Price)),
@@ -459,7 +464,7 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResour
 	}
 
 	costObjectValue, costDiagnostic := types.ObjectValueFrom(ctx, vmResourceCostModel{}.attrTypes(), vmResourceCost)
-	data.Cost = costObjectValue
+	stateData.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
 	var disks []vmResourceDiskModel
@@ -474,7 +479,7 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResour
 		disks = append(disks, disk)
 	}
 	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceDiskModel{}.attrTypes()}, disks)
-	data.Disks = disksListValue
+	stateData.Disks = disksListValue
 	diags.Append(disksDiagnostic...)
 
 	var networks []vmResourceNetworkModel
@@ -488,19 +493,19 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResour
 		networks = append(networks, network)
 	}
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
-	data.Networks = networksListValue
+	stateData.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
 
-	data.Vcpu = planData.Vcpu
-	data.VcpuType = planData.VcpuType
-	data.VolumeGb = planData.VolumeGb
-	data.RamGb = planData.RamGb
+	stateData.Vcpu = planData.Vcpu
+	stateData.VcpuType = planData.VcpuType
+	stateData.VolumeGb = planData.VolumeGb
+	stateData.RamGb = planData.RamGb
 }
 
-func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
-	data.Id = types.StringValue(strconv.Itoa(int(*vm.Id)))
-	data.Status = types.StringValue(*vm.Status)
-	data.Name = types.StringValue(*vm.Name)
+func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel, planData *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
+	stateData.Id = types.StringValue(strconv.Itoa(int(*vm.Id)))
+	stateData.Status = types.StringValue(*vm.Status)
+	stateData.Name = types.StringValue(*vm.Name)
 
 	vmResourceCost := vmResourceCostModel{
 		Price:    types.Float64Value(float64(*vm.Cost.Price)),
@@ -509,14 +514,14 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 	}
 
 	costObjectValue, costDiagnostic := types.ObjectValueFrom(ctx, vmResourceCostModel{}.attrTypes(), vmResourceCost)
-	data.Cost = costObjectValue
+	stateData.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
 	var disks []vmResourceDiskModel
 	for _, responseDisk := range vm.Disks {
 		if *responseDisk.IsBootable {
-			data.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
-			data.VolumeType = types.StringValue(*responseDisk.Type)
+			stateData.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
+			stateData.VolumeType = types.StringValue(*responseDisk.Type)
 		}
 		disk := vmResourceDiskModel{
 			Id:         types.Int64Value(int64(*responseDisk.Id)),
@@ -528,7 +533,7 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 		disks = append(disks, disk)
 	}
 	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceDiskModel{}.attrTypes()}, disks)
-	data.Disks = disksListValue
+	stateData.Disks = disksListValue
 	diags.Append(disksDiagnostic...)
 
 	var networks []vmResourceNetworkModel
@@ -542,21 +547,22 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 		networks = append(networks, network)
 	}
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
-	data.Networks = networksListValue
+	stateData.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
-	data.Vcpu = types.Int64Value(int64(*vm.VCpu))
-	data.VcpuType = types.StringValue(*vm.VCpuType)
+	stateData.Vcpu = types.Int64Value(int64(*vm.VCpu))
+	stateData.VcpuType = types.StringValue(*vm.VCpuType)
 	if vm.CloudNetworkType != nil {
-		data.CloudNetworkType = types.StringValue(*vm.CloudNetworkType)
+		stateData.CloudNetworkType = types.StringValue(*vm.CloudNetworkType)
 	}
-	if vm.SecurityGroup != nil {
-		data.SecurityGroupId = types.Int64Value(int64(*vm.SecurityGroup.Id))
+	if (planData != nil && !planData.SecurityGroupId.IsUnknown() && !planData.SecurityGroupId.IsNull()) ||
+		(!stateData.SecurityGroupId.IsUnknown() && !stateData.SecurityGroupId.IsNull()) {
+		stateData.SecurityGroupId = types.Int64Value(int64(*vm.SecurityGroup.Id))
 	}
-	data.RamGb = types.Int64Value(int64(*vm.RamGb))
-	data.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
-	data.OsId = types.Int64Value(int64(*vm.Os.Id))
+	stateData.RamGb = types.Int64Value(int64(*vm.RamGb))
+	stateData.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
+	stateData.OsId = types.Int64Value(int64(*vm.Os.Id))
 	if vm.DataCenter != nil {
-		data.DataCenterId = types.StringValue(*vm.DataCenter.Id)
+		stateData.DataCenterId = types.StringValue(*vm.DataCenter.Id)
 	}
 }
 

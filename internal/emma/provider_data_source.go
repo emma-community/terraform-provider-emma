@@ -37,19 +37,19 @@ func (d *providerDataSource) Metadata(ctx context.Context, req datasource.Metada
 
 func (d *providerDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Provider data source",
-
+		Description: "Cloud service provider is a third-party company that provides scalable computing resources that " +
+			"users can access over emma platform. When you create any computing resources in emma you create them in " +
+			"the provider's datacenters. Provider is necessary when you select a data center for creating compute instances.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				MarkdownDescription: "Provider id",
-				Computed:            true,
+				Description: "ID of the cloud provider",
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Provider name",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
+				Description: "Name of the cloud provider",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
 			},
 		},
 	}

@@ -3,12 +3,12 @@
 page_title: "emma_operating_system Data Source - emma"
 subcategory: ""
 description: |-
-  Operating system data source
+  All compute instances are created with operating system. The operating system ID is necessary for creating any compute instance.
 ---
 
 # emma_operating_system (Data Source)
 
-Operating system data source
+All compute instances are created with operating system. The operating system ID is necessary for creating any compute instance.
 
 ## Example Usage
 

@@ -77,116 +77,123 @@ func (r *vmResource) Metadata(ctx context.Context, req resource.MetadataRequest,
 
 func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Vm resource",
-
+		Description: "This resource creates a virtual machine according to the specified parameters.\n\n" +
+			"To create a virtual machine, follow these steps:\n\n" +
+			"1. Select a data center using the `emma_data_center` data source. The data center determines the provider " +
+			"and location of the virtual machine.\n\n" +
+			"2. Select an available hardware configuration for the virtual machine.\n\n" +
+			"3. Select an SSH key for the virtual machine.\n\n" +
+			"4. Select an operating system using the `emma_operating_system` data source.\n\n" +
+			"5. Choose one of the cloud network types: _multi-cloud_, _isolated,_ or _default_. Choose the _multi-cloud_ " +
+			"network type if you need to connect compute instances from different providers.\n\n" +
+			"You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Vm id configurable attribute",
-				Computed:            true,
+				Description: "ID of the virtual machine",
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Vm name configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.NotEmptyString{}},
+				Description: "Name of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.String{emma.NotEmptyString{}},
 			},
 			"data_center_id": schema.StringAttribute{
-				MarkdownDescription: "Vm data_center_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.NotEmptyString{}},
+				Description: "Data center ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.String{emma.NotEmptyString{}},
 			},
 			"os_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm os_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Operating system ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
-				MarkdownDescription: "Vm cloud_network_type configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.CloudNetworkType{}},
+				Description: "Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, virtual machine will be recreated after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.String{emma.CloudNetworkType{}},
 			},
 			"vcpu_type": schema.StringAttribute{
-				MarkdownDescription: "Vm vcpu_type configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.VCpuType{}},
+				Description: "Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, virtual machine will be recreated after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.String{emma.VCpuType{}},
 			},
 			"vcpu": schema.Int64Attribute{
-				MarkdownDescription: "Vm vcpu configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Number of virtual Central Processing Units (vCPUs), the process of edit hardware will start after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ram_gb": schema.Int64Attribute{
-				MarkdownDescription: "Vm ram_gb configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Capacity of the RAM in gigabytes, the process of edit hardware will start after changing this value",
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
-				MarkdownDescription: "Vm volume_type configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.VolumeType{}},
+				Description: "Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, the process of edit hardware will start after changing this value",
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.String{emma.VolumeType{}},
 			},
 			"volume_gb": schema.Int64Attribute{
-				MarkdownDescription: "Vm volume_gb configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Volume size in gigabytes, the process of edit hardware will start after changing this value",
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ssh_key_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm ssh_key_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"security_group_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm security_group_id configurable attribute",
-				Computed:            false,
-				Required:            false,
-				Optional:            true,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Security group ID of the virtual machine, the process of changing the security group will start after changing this value",
+				Computed:    false,
+				Required:    false,
+				Optional:    true,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 
 			"status": schema.StringAttribute{
-				MarkdownDescription: "Vm status configurable attribute",
-				Computed:            true,
+				Description: "Status of the virtual machine",
+				Computed:    true,
 			},
 			"disks": schema.ListNestedAttribute{
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
-							MarkdownDescription: "Vm disks id configurable attribute",
-							Computed:            true,
+							Description: "Volume ID",
+							Computed:    true,
 						},
 						"size_gb": schema.Int64Attribute{
-							MarkdownDescription: "Vm disks size_gb configurable attribute",
-							Computed:            true,
+							Description: "Volume size in gigabytes",
+							Computed:    true,
 						},
 						"type_id": schema.Int64Attribute{
-							MarkdownDescription: "Vm disks type_id configurable attribute",
-							Computed:            true,
+							Description: "ID of the volume type",
+							Computed:    true,
 						},
 						"type": schema.StringAttribute{
-							MarkdownDescription: "Vm disks type configurable attribute",
-							Computed:            true,
+							Description: "Volume type",
+							Computed:    true,
 						},
 						"is_bootable": schema.BoolAttribute{
-							MarkdownDescription: "Vm disks is_bootable configurable attribute",
-							Computed:            true,
+							Description: "Indicates whether the volume is bootable or not",
+							Computed:    true,
 						},
 					},
 				},
@@ -196,20 +203,20 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
-							MarkdownDescription: "Vm networks id configurable attribute",
-							Computed:            true,
+							Description: "Network ID",
+							Computed:    true,
 						},
 						"ip": schema.StringAttribute{
-							MarkdownDescription: "Vm networks ip configurable attribute",
-							Computed:            true,
+							Description: "Network IP",
+							Computed:    true,
 						},
 						"network_type_id": schema.Int64Attribute{
-							MarkdownDescription: "Vm networks network_type_id configurable attribute",
-							Computed:            true,
+							Description: "ID of the network type",
+							Computed:    true,
 						},
 						"network_type": schema.StringAttribute{
-							MarkdownDescription: "Vm networks network_type configurable attribute",
-							Computed:            true,
+							Description: "Network type",
+							Computed:    true,
 						},
 					},
 				},
@@ -218,16 +225,16 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Computed: true,
 				Attributes: map[string]schema.Attribute{
 					"unit": schema.StringAttribute{
-						MarkdownDescription: "Vm cost unit configurable attribute",
-						Computed:            true,
+						Description: "Cost period",
+						Computed:    true,
 					},
 					"currency": schema.StringAttribute{
-						MarkdownDescription: "Vm cost currency configurable attribute",
-						Computed:            true,
+						Description: "Currency of cost",
+						Computed:    true,
 					},
 					"price": schema.Float64Attribute{
-						MarkdownDescription: "Vm cost price configurable attribute",
-						Computed:            true,
+						Description: "Cost of the virtual machine for the period",
+						Computed:    true,
 					},
 				},
 			},

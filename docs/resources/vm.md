@@ -3,12 +3,34 @@
 page_title: "emma_vm Resource - emma"
 subcategory: ""
 description: |-
-  Vm resource
+  This resource creates a virtual machine according to the specified parameters.
+  To create a virtual machine, follow these steps:
+  
+  Select a data center using the emma_data_center data source. The data center determines the provider and location of the virtual machine.
+  Select an available hardware configuration for the virtual machine.
+  Select an SSH key for the virtual machine.
+  Select an operating system using the emma_operating_system data source.
+  Choose one of the cloud network types: multi-cloud, isolated, or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
+  You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.
 ---
 
 # emma_vm (Resource)
 
-Vm resource
+This resource creates a virtual machine according to the specified parameters.
+
+To create a virtual machine, follow these steps:
+
+1. Select a data center using the `emma_data_center` data source. The data center determines the provider and location of the virtual machine.
+
+2. Select an available hardware configuration for the virtual machine.
+
+3. Select an SSH key for the virtual machine.
+
+4. Select an operating system using the `emma_operating_system` data source.
+
+5. Choose one of the cloud network types: _multi-cloud_, _isolated,_ or _default_. Choose the _multi-cloud_ network type if you need to connect compute instances from different providers.
+
+You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.
 
 ## Example Usage
 
@@ -32,37 +54,37 @@ resource "emma_vm" "vm" {
 
 ### Required
 
-- `cloud_network_type` (String) Vm cloud_network_type configurable attribute
-- `data_center_id` (String) Vm data_center_id configurable attribute
-- `name` (String) Vm name configurable attribute
-- `os_id` (Number) Vm os_id configurable attribute
-- `ram_gb` (Number) Vm ram_gb configurable attribute
-- `ssh_key_id` (Number) Vm ssh_key_id configurable attribute
-- `vcpu` (Number) Vm vcpu configurable attribute
-- `vcpu_type` (String) Vm vcpu_type configurable attribute
-- `volume_gb` (Number) Vm volume_gb configurable attribute
-- `volume_type` (String) Vm volume_type configurable attribute
+- `cloud_network_type` (String) Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, virtual machine will be recreated after changing this value
+- `data_center_id` (String) Data center ID of the virtual machine, virtual machine will be recreated after changing this value
+- `name` (String) Name of the virtual machine, virtual machine will be recreated after changing this value
+- `os_id` (Number) Operating system ID of the virtual machine, virtual machine will be recreated after changing this value
+- `ram_gb` (Number) Capacity of the RAM in gigabytes, the process of edit hardware will start after changing this value
+- `ssh_key_id` (Number) Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value
+- `vcpu` (Number) Number of virtual Central Processing Units (vCPUs), the process of edit hardware will start after changing this value
+- `vcpu_type` (String) Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, virtual machine will be recreated after changing this value
+- `volume_gb` (Number) Volume size in gigabytes, the process of edit hardware will start after changing this value
+- `volume_type` (String) Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, the process of edit hardware will start after changing this value
 
 ### Optional
 
-- `security_group_id` (Number) Vm security_group_id configurable attribute
+- `security_group_id` (Number) Security group ID of the virtual machine, the process of changing the security group will start after changing this value
 
 ### Read-Only
 
 - `cost` (Attributes) (see [below for nested schema](#nestedatt--cost))
 - `disks` (Attributes List) (see [below for nested schema](#nestedatt--disks))
-- `id` (String) Vm id configurable attribute
+- `id` (String) ID of the virtual machine
 - `networks` (Attributes List) (see [below for nested schema](#nestedatt--networks))
-- `status` (String) Vm status configurable attribute
+- `status` (String) Status of the virtual machine
 
 <a id="nestedatt--cost"></a>
 ### Nested Schema for `cost`
 
 Read-Only:
 
-- `currency` (String) Vm cost currency configurable attribute
-- `price` (Number) Vm cost price configurable attribute
-- `unit` (String) Vm cost unit configurable attribute
+- `currency` (String) Currency of cost
+- `price` (Number) Cost of the virtual machine for the period
+- `unit` (String) Cost period
 
 
 <a id="nestedatt--disks"></a>
@@ -70,11 +92,11 @@ Read-Only:
 
 Read-Only:
 
-- `id` (Number) Vm disks id configurable attribute
-- `is_bootable` (Boolean) Vm disks is_bootable configurable attribute
-- `size_gb` (Number) Vm disks size_gb configurable attribute
-- `type` (String) Vm disks type configurable attribute
-- `type_id` (Number) Vm disks type_id configurable attribute
+- `id` (Number) Volume ID
+- `is_bootable` (Boolean) Indicates whether the volume is bootable or not
+- `size_gb` (Number) Volume size in gigabytes
+- `type` (String) Volume type
+- `type_id` (Number) ID of the volume type
 
 
 <a id="nestedatt--networks"></a>
@@ -82,7 +104,7 @@ Read-Only:
 
 Read-Only:
 
-- `id` (Number) Vm networks id configurable attribute
-- `ip` (String) Vm networks ip configurable attribute
-- `network_type` (String) Vm networks network_type configurable attribute
-- `network_type_id` (Number) Vm networks network_type_id configurable attribute
+- `id` (Number) Network ID
+- `ip` (String) Network IP
+- `network_type` (String) Network type
+- `network_type_id` (Number) ID of the network type

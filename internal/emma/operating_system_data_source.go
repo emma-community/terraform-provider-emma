@@ -40,35 +40,33 @@ func (d *operatingSystemDataSource) Metadata(ctx context.Context, req datasource
 
 func (d *operatingSystemDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Operating system data source",
-
+		Description: "All compute instances are created with operating system. The operating system ID is necessary for creating any compute instance.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				MarkdownDescription: "Operating system id",
-				Computed:            true,
+				Description: "Operating system id",
+				Computed:    true,
 			},
 			"family": schema.StringAttribute{
-				MarkdownDescription: "Operating system family",
-				Computed:            true,
+				Description: "Operating system family",
+				Computed:    true,
 			},
 			"type": schema.StringAttribute{
-				MarkdownDescription: "Operating system type",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
+				Description: "Operating system type",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
 			},
 			"architecture": schema.StringAttribute{
-				MarkdownDescription: "Operating system architecture",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
+				Description: "Operating system architecture",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
 			},
 			"version": schema.StringAttribute{
-				MarkdownDescription: "Operating system version",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
+				Description: "Operating system version",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
 			},
 		},
 	}

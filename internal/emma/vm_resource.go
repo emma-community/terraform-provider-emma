@@ -11,6 +11,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -93,32 +96,36 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				Description: "Name of the virtual machine, virtual machine will be recreated after changing this value",
-				Computed:    false,
-				Required:    true,
-				Optional:    false,
-				Validators:  []validator.String{emma.NotEmptyString{}},
+				Description:   "Name of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.NotEmptyString{}},
 			},
 			"data_center_id": schema.StringAttribute{
-				Description: "Data center ID of the virtual machine, virtual machine will be recreated after changing this value",
-				Computed:    false,
-				Required:    true,
-				Optional:    false,
-				Validators:  []validator.String{emma.NotEmptyString{}},
+				Description:   "Data center ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.NotEmptyString{}},
 			},
 			"os_id": schema.Int64Attribute{
-				Description: "Operating system ID of the virtual machine, virtual machine will be recreated after changing this value",
-				Computed:    false,
-				Required:    true,
-				Optional:    false,
-				Validators:  []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Operating system ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
-				Description: "Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, virtual machine will be recreated after changing this value",
-				Computed:    false,
-				Required:    true,
-				Optional:    false,
-				Validators:  []validator.String{emma.CloudNetworkType{}},
+				Description:   "Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.CloudNetworkType{}},
 			},
 			"vcpu_type": schema.StringAttribute{
 				Description: "Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, virtual machine will be recreated after changing this value",
@@ -141,10 +148,11 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
-				Description: "Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, the process of edit hardware will start after changing this value",
-				Required:    true,
-				Optional:    false,
-				Validators:  []validator.String{emma.VolumeType{}},
+				Description:   "Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, the process of edit hardware will start after changing this value",
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.VolumeType{}},
 			},
 			"volume_gb": schema.Int64Attribute{
 				Description: "Volume size in gigabytes, the process of edit hardware will start after changing this value",
@@ -153,11 +161,12 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ssh_key_id": schema.Int64Attribute{
-				Description: "Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value",
-				Computed:    false,
-				Required:    true,
-				Optional:    false,
-				Validators:  []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"security_group_id": schema.Int64Attribute{
 				Description: "Security group ID of the virtual machine, the process of changing the security group will start after changing this value",
@@ -338,71 +347,43 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 
-	if !planData.Name.Equal(stateData.Name) || !planData.OsId.Equal(stateData.OsId) ||
-		!planData.DataCenterId.Equal(stateData.DataCenterId) || !planData.VolumeType.Equal(stateData.VolumeType) ||
-		!planData.CloudNetworkType.Equal(stateData.CloudNetworkType) || !planData.SshKeyId.Equal(stateData.SshKeyId) {
-
-		var vmCreateRequest emmaSdk.VmCreate
-		ConvertToVmCreateRequest(planData, &vmCreateRequest)
-		vm, response, err := r.apiClient.VirtualMachinesAPI.VmCreate(auth).VmCreate(vmCreateRequest).Execute()
-
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to create virtual machine, got error: %s",
-					tools.ExtractErrorMessage(response)))
-			return
-		}
-
-		_, response, err = r.apiClient.VirtualMachinesAPI.VmDelete(auth, tools.StringToInt32(stateData.Id.ValueString())).Execute()
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to delete virtual machine, got error: %s",
-					tools.ExtractErrorMessage(response)))
-			return
-		}
-
-		ConvertVmResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
-
-	} else {
-
-		if !planData.SecurityGroupId.Equal(stateData.SecurityGroupId) {
-			if planData.SecurityGroupId.IsUnknown() || planData.SecurityGroupId.IsNull() {
-				stateData.SecurityGroupId = types.Int64Null()
-			} else {
-				vmId := tools.StringToInt32(stateData.Id.ValueString())
-				securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &vmId}
-				_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
-					int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
-				if err != nil {
-					resp.Diagnostics.AddError("Client Error",
-						fmt.Sprintf("Unable to add virtual machine to security group, got error: %s",
-							tools.ExtractErrorMessage(response)))
-					return
-				}
-				stateData.SecurityGroupId = planData.SecurityGroupId
-			}
-		}
-
-		if !planData.RamGb.Equal(stateData.RamGb) || !planData.Vcpu.Equal(stateData.Vcpu) ||
-			!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VcpuType.Equal(stateData.VcpuType) {
-
-			vmActionEditHardwareRequest := emmaSdk.VmActionsRequest{}
-			vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.Vcpu.ValueInt64()),
-				int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
-			vmEditHardware.VCpuType = planData.VcpuType.ValueStringPointer()
-			vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
-			vm, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth,
-				tools.StringToInt32(stateData.Id.ValueString())).VmActionsRequest(vmActionEditHardwareRequest).Execute()
-
+	if !planData.SecurityGroupId.Equal(stateData.SecurityGroupId) {
+		if planData.SecurityGroupId.IsUnknown() || planData.SecurityGroupId.IsNull() {
+			stateData.SecurityGroupId = types.Int64Null()
+		} else {
+			vmId := tools.StringToInt32(stateData.Id.ValueString())
+			securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &vmId}
+			_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
+				int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
 			if err != nil {
 				resp.Diagnostics.AddError("Client Error",
-					fmt.Sprintf("Unable to edit hardware of the virtual machine, got error: %s",
+					fmt.Sprintf("Unable to add virtual machine to security group, got error: %s",
 						tools.ExtractErrorMessage(response)))
 				return
 			}
-
-			ConvertEditVmHardwareResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
+			stateData.SecurityGroupId = planData.SecurityGroupId
 		}
+	}
+
+	if !planData.RamGb.Equal(stateData.RamGb) || !planData.Vcpu.Equal(stateData.Vcpu) ||
+		!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VcpuType.Equal(stateData.VcpuType) {
+
+		vmActionEditHardwareRequest := emmaSdk.VmActionsRequest{}
+		vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.Vcpu.ValueInt64()),
+			int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
+		vmEditHardware.VCpuType = planData.VcpuType.ValueStringPointer()
+		vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
+		vm, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth,
+			tools.StringToInt32(stateData.Id.ValueString())).VmActionsRequest(vmActionEditHardwareRequest).Execute()
+
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error",
+				fmt.Sprintf("Unable to edit hardware of the virtual machine, got error: %s",
+					tools.ExtractErrorMessage(response)))
+			return
+		}
+
+		ConvertEditVmHardwareResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
 	}
 
 	// Save updated data into Terraform state

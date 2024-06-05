@@ -8,10 +8,10 @@ description: |-
   
   Select a data center using the emma_data_center data source. The data center determines the provider and location of the virtual machine.
   Select an available hardware configuration for the virtual machine.
-  Select an SSH key for the virtual machine.
+  Select or create an SSH key for the virtual machine using the emma_ssh_key resource.
   Select an operating system using the emma_operating_system data source.
   Choose one of the cloud network types: multi-cloud, isolated, or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
-  You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.
+  Select or create an security group for the virtual machine using the emma_security_group resource. You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.
 ---
 
 # emma_vm (Resource)
@@ -24,13 +24,13 @@ To create a virtual machine, follow these steps:
 
 2. Select an available hardware configuration for the virtual machine.
 
-3. Select an SSH key for the virtual machine.
+3. Select or create an SSH key for the virtual machine using the `emma_ssh_key` resource.
 
 4. Select an operating system using the `emma_operating_system` data source.
 
-5. Choose one of the cloud network types: _multi-cloud_, _isolated,_ or _default_. Choose the _multi-cloud_ network type if you need to connect compute instances from different providers.
+5. Choose one of the cloud network types: multi-cloud, isolated, or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
 
-You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.
+6. Select or create an security group for the virtual machine using the `emma_security_group` resource. You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.
 
 ## Example Usage
 
@@ -55,16 +55,16 @@ resource "emma_vm" "vm" {
 
 ### Required
 
-- `cloud_network_type` (String) Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, virtual machine will be recreated after changing this value
+- `cloud_network_type` (String) Cloud network type, available values: multi-cloud, isolated, or default, virtual machine will be recreated after changing this value
 - `data_center_id` (String) Data center ID of the virtual machine, virtual machine will be recreated after changing this value
 - `name` (String) Name of the virtual machine, virtual machine will be recreated after changing this value
 - `os_id` (Number) Operating system ID of the virtual machine, virtual machine will be recreated after changing this value
 - `ram_gb` (Number) Capacity of the RAM in gigabytes, the process of edit hardware will start after changing this value
 - `ssh_key_id` (Number) Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value
 - `vcpu` (Number) Number of virtual Central Processing Units (vCPUs), the process of edit hardware will start after changing this value
-- `vcpu_type` (String) Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, virtual machine will be recreated after changing this value
+- `vcpu_type` (String) Type of virtual Central Processing Units (vCPUs), available values: shared, standard or hpc, virtual machine will be recreated after changing this value
 - `volume_gb` (Number) Volume size in gigabytes, the process of edit hardware will start after changing this value
-- `volume_type` (String) Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, the process of edit hardware will start after changing this value
+- `volume_type` (String) Volume type of the compute instance, available values: ssd or ssd-plus, the process of edit hardware will start after changing this value
 
 ### Optional
 

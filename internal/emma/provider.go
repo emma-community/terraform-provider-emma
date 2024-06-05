@@ -19,7 +19,6 @@ var (
 	_ provider.Provider = &Provider{}
 )
 
-// New is a helper function to simplify provider server and testing implementation.
 func New() func() provider.Provider {
 	return func() provider.Provider {
 		return &Provider{}

@@ -11,13 +11,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"strconv"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var _ resource.Resource = &spotInstanceResource{}
 
 func NewSpotInstanceResource() resource.Resource {
@@ -79,122 +82,149 @@ func (r *spotInstanceResource) Metadata(ctx context.Context, req resource.Metada
 func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "SpotInstance resource",
+		Description: "This resource creates a spot instance according to the specified parameters.\n\n" +
+			"A Spot Instance is a specialized compute instance that allows you to access and utilize unused instance " +
+			"capacity at a steeply discounted rate. Spot price is charged on an hourly basis.\n\n" +
+			"To create a spot instance, follow these steps:\n\n" +
+			"1. Select a data center using the `emma_data_center` data source. The data center determines the provider " +
+			"and location of the spot instance.\n\n" +
+			"2. Select an available hardware configuration for the spot instance.\n\n" +
+			"3. Select or create an SSH key for the spot instance using the `emma_ssh_key` resource.\n\n" +
+			"4. Select an operating system using the `emma_operating_system` data source.\n\n" +
+			"5. Choose one of the cloud network types: _multi-cloud, isolated,_ or _default_. Choose the _multi-cloud_ " +
+			"network type if you need to connect compute instances from different providers.\n\n" +
+			"6. Select or create an security group for the spot instance using the `emma_security_group` resource. " +
+			"You may choose not to specify a security group. In this case, the spot instance will be added to the default security group.\n\n" +
+			"A `price` field of a spot instance is not required.\n\n" +
+			"The spot instance market operates on a bidding system. Your specified price acts as your bid in this market. " +
+			"If your bid is higher than the current spot price, your instance request will likely be fulfilled. " +
+			"However, if the market price exceeds your bid, your instance may not be launched or could be terminated if already running.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance id configurable attribute",
-				Computed:            true,
+				Description: "ID of the spot instance",
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance name configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.NotEmptyString{}},
+				Description:   "Name of the spot instance, spot instance will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.NotEmptyString{}},
 			},
 			"data_center_id": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance data_center_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.NotEmptyString{}},
+				Description:   "Data center ID of the spot instance, spot instance will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.NotEmptyString{}},
 			},
 			"os_id": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance os_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Operating system ID of the spot instance, spot instance will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance cloud_network_type configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.CloudNetworkType{}},
+				Description:   "Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, spot instance will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.CloudNetworkType{}},
 			},
 			"vcpu_type": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance vcpu_type configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.VCpuType{}},
+				Description:   "Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, spot instance will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.VCpuType{}},
 			},
 			"vcpu": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance vcpu configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Number of virtual Central Processing Units (vCPUs), spot instance will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ram_gb": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance ram_gb configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Capacity of the RAM in gigabytes, spot instance will be recreated after changing this value",
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance volume_type configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.VolumeType{}},
+				Description:   "Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, spot instance will be recreated after changing this value",
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.VolumeType{}},
 			},
 			"volume_gb": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance volume_gb configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Volume size in gigabytes, spot instance will be recreated after changing this value",
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ssh_key_id": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance ssh_key_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Ssh key ID of the spot instance, spot instance will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"security_group_id": schema.Int64Attribute{
-				MarkdownDescription: "SpotInstance security_group_id configurable attribute",
-				Computed:            false,
-				Required:            false,
-				Optional:            true,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Security group ID of the spot instance, the process of changing the security group will start after changing this value",
+				Computed:    false,
+				Required:    false,
+				Optional:    true,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"price": schema.Float64Attribute{
-				MarkdownDescription: "SpotInstance price configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Float64{emma.PositiveFloat64{}},
+				Description:   "Offer price of the spot instance, spot instance will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Float64{float64planmodifier.RequiresReplace()},
+				Validators:    []validator.Float64{emma.PositiveFloat64{}},
 			},
 
 			"status": schema.StringAttribute{
-				MarkdownDescription: "SpotInstance status configurable attribute",
-				Computed:            true,
+				Description: "Status of the spot instance",
+				Computed:    true,
 			},
 			"disks": schema.ListNestedAttribute{
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
-							MarkdownDescription: "SpotInstance disks id configurable attribute",
-							Computed:            true,
+							Description: "Volume ID",
+							Computed:    true,
 						},
 						"size_gb": schema.Int64Attribute{
-							MarkdownDescription: "SpotInstance disks size_gb configurable attribute",
-							Computed:            true,
+							Description: "Volume size in gigabytes",
+							Computed:    true,
 						},
 						"type_id": schema.Int64Attribute{
-							MarkdownDescription: "SpotInstance disks type_id configurable attribute",
-							Computed:            true,
+							Description: "ID of the volume type",
+							Computed:    true,
 						},
 						"type": schema.StringAttribute{
-							MarkdownDescription: "SpotInstance disks type configurable attribute",
-							Computed:            true,
+							Description: "Volume type",
+							Computed:    true,
 						},
 						"is_bootable": schema.BoolAttribute{
-							MarkdownDescription: "SpotInstance disks is_bootable configurable attribute",
-							Computed:            true,
+							Description: "Indicates whether the volume is bootable or not",
+							Computed:    true,
 						},
 					},
 				},
@@ -204,20 +234,20 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
-							MarkdownDescription: "SpotInstance networks id configurable attribute",
-							Computed:            true,
+							Description: "Network ID",
+							Computed:    true,
 						},
 						"ip": schema.StringAttribute{
-							MarkdownDescription: "SpotInstance networks ip configurable attribute",
-							Computed:            true,
+							Description: "Network IP",
+							Computed:    true,
 						},
 						"network_type_id": schema.Int64Attribute{
-							MarkdownDescription: "SpotInstance networks network_type_id configurable attribute",
-							Computed:            true,
+							Description: "ID of the network type",
+							Computed:    true,
 						},
 						"network_type": schema.StringAttribute{
-							MarkdownDescription: "SpotInstance networks network_type configurable attribute",
-							Computed:            true,
+							Description: "Network type",
+							Computed:    true,
 						},
 					},
 				},
@@ -226,16 +256,16 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				Computed: true,
 				Attributes: map[string]schema.Attribute{
 					"unit": schema.StringAttribute{
-						MarkdownDescription: "SpotInstance cost unit configurable attribute",
-						Computed:            true,
+						Description: "Cost period",
+						Computed:    true,
 					},
 					"currency": schema.StringAttribute{
-						MarkdownDescription: "SpotInstance cost currency configurable attribute",
-						Computed:            true,
+						Description: "Currency of cost",
+						Computed:    true,
 					},
 					"price": schema.Float64Attribute{
-						MarkdownDescription: "SpotInstance cost price configurable attribute",
-						Computed:            true,
+						Description: "Cost of the spot instance for the period",
+						Computed:    true,
 					},
 				},
 			},
@@ -285,7 +315,7 @@ func (r *spotInstanceResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	ConvertSpotInstanceResponseToResource(ctx, &data, spotInstance, resp.Diagnostics)
+	ConvertSpotInstanceResponseToResource(ctx, &data, nil, spotInstance, resp.Diagnostics)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -315,7 +345,7 @@ func (r *spotInstanceResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	ConvertSpotInstanceResponseToResource(ctx, &data, spotInstance, resp.Diagnostics)
+	ConvertSpotInstanceResponseToResource(ctx, &data, nil, spotInstance, resp.Diagnostics)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -339,46 +369,22 @@ func (r *spotInstanceResource) Update(ctx context.Context, req resource.UpdateRe
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 
-	if !planData.Name.Equal(stateData.Name) || !planData.OsId.Equal(stateData.OsId) ||
-		!planData.DataCenterId.Equal(stateData.DataCenterId) || !planData.VolumeType.Equal(stateData.VolumeType) ||
-		!planData.CloudNetworkType.Equal(stateData.CloudNetworkType) || !planData.SshKeyId.Equal(stateData.SshKeyId) ||
-		!planData.RamGb.Equal(stateData.RamGb) || !planData.VCpu.Equal(stateData.VCpu) ||
-		!planData.VCpuType.Equal(stateData.VCpuType) || !planData.VolumeGb.Equal(stateData.VolumeGb) {
-
-		var spotCreateRequest emmaSdk.SpotCreate
-		ConvertToSpotInstanceCreateRequest(planData, &spotCreateRequest)
-		spotInstance, response, err := r.apiClient.SpotInstancesAPI.SpotCreate(auth).SpotCreate(spotCreateRequest).Execute()
-
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to create spotInstance machine, got error: %s",
-					tools.ExtractErrorMessage(response)))
-			return
-		}
-
-		_, response, err = r.apiClient.SpotInstancesAPI.SpotDelete(auth, tools.StringToInt32(stateData.Id.ValueString())).Execute()
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to delete spotInstance machine, got error: %s",
-					tools.ExtractErrorMessage(response)))
-			return
-		}
-
-		ConvertSpotInstanceResponseToResource(ctx, &stateData, spotInstance, resp.Diagnostics)
-
-	} else {
-
-		if !planData.SecurityGroupId.Equal(stateData.SecurityGroupId) {
-			spotId := tools.StringToInt32(stateData.Id.ValueString())
-			securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &spotId}
-			_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
+	if !planData.SecurityGroupId.Equal(stateData.SecurityGroupId) {
+		if planData.SecurityGroupId.IsUnknown() || planData.SecurityGroupId.IsNull() {
+			stateData.SecurityGroupId = types.Int64Null()
+		} else {
+			vmId := tools.StringToInt32(stateData.Id.ValueString())
+			securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &vmId}
+			vm, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
 				int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
 			if err != nil {
 				resp.Diagnostics.AddError("Client Error",
-					fmt.Sprintf("Unable to add spot machine to security group, got error: %s",
+					fmt.Sprintf("Unable to add spot instance to security group, got error: %s",
 						tools.ExtractErrorMessage(response)))
 				return
 			}
+			stateData.SecurityGroupId = planData.SecurityGroupId
+			ConvertSpotInstanceResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
 		}
 	}
 
@@ -439,28 +445,32 @@ func ConvertToSpotInstanceCreateRequest(data spotInstanceResourceModel, spotInst
 	spotInstanceCreate.Price = float32(data.Price.ValueFloat64())
 }
 
-func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstanceResourceModel, spotInstance *emmaSdk.Vm, diags diag.Diagnostics) {
-	data.Id = types.StringValue(strconv.Itoa(int(*spotInstance.Id)))
-	data.Status = types.StringValue(*spotInstance.Status)
-	data.Name = types.StringValue(*spotInstance.Name)
+func ConvertSpotInstanceResponseToResource(ctx context.Context, stateData *spotInstanceResourceModel, planData *spotInstanceResourceModel, spotInstance *emmaSdk.Vm, diags diag.Diagnostics) {
+	stateData.Id = types.StringValue(strconv.Itoa(int(*spotInstance.Id)))
+	stateData.Status = types.StringValue(*spotInstance.Status)
+	stateData.Name = types.StringValue(*spotInstance.Name)
 
-	spotInstanceResourceCost := spotInstanceResourceCostModel{
+	if planData != nil && !planData.Price.IsUnknown() && !planData.Price.IsNull() {
+		stateData.Price = planData.Price
+	}
+
+	vmResourceCost := vmResourceCostModel{
 		Price:    types.Float64Value(float64(*spotInstance.Cost.Price)),
 		Currency: types.StringValue(*spotInstance.Cost.Currency),
 		Unit:     types.StringValue(*spotInstance.Cost.Unit),
 	}
 
-	costObjectValue, costDiagnostic := types.ObjectValueFrom(ctx, spotInstanceResourceCostModel{}.attrTypes(), spotInstanceResourceCost)
-	data.Cost = costObjectValue
+	costObjectValue, costDiagnostic := types.ObjectValueFrom(ctx, spotInstanceResourceCostModel{}.attrTypes(), vmResourceCost)
+	stateData.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
-	var disks []spotInstanceResourceDiskModel
+	var disks []vmResourceDiskModel
 	for _, responseDisk := range spotInstance.Disks {
 		if *responseDisk.IsBootable {
-			data.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
-			data.VolumeType = types.StringValue(*responseDisk.Type)
+			stateData.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
+			stateData.VolumeType = types.StringValue(*responseDisk.Type)
 		}
-		disk := spotInstanceResourceDiskModel{
+		disk := vmResourceDiskModel{
 			Id:         types.Int64Value(int64(*responseDisk.Id)),
 			Type_:      types.StringValue(*responseDisk.Type),
 			TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
@@ -470,12 +480,12 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstan
 		disks = append(disks, disk)
 	}
 	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceDiskModel{}.attrTypes()}, disks)
-	data.Disks = disksListValue
+	stateData.Disks = disksListValue
 	diags.Append(disksDiagnostic...)
 
-	var networks []spotInstanceResourceNetworkModel
+	var networks []vmResourceNetworkModel
 	for _, responseNetwork := range spotInstance.Networks {
-		network := spotInstanceResourceNetworkModel{
+		network := vmResourceNetworkModel{
 			Id:            types.Int64Value(int64(*responseNetwork.Id)),
 			Ip:            types.StringPointerValue(responseNetwork.Ip),
 			NetworkTypeId: types.Int64Value(int64(*responseNetwork.NetworkTypeId)),
@@ -484,21 +494,22 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, data *spotInstan
 		networks = append(networks, network)
 	}
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: spotInstanceResourceNetworkModel{}.attrTypes()}, networks)
-	data.Networks = networksListValue
+	stateData.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
-	data.VCpu = types.Int64Value(int64(*spotInstance.VCpu))
-	data.VCpuType = types.StringValue(*spotInstance.VCpuType)
+	stateData.VCpu = types.Int64Value(int64(*spotInstance.VCpu))
+	stateData.VCpuType = types.StringValue(*spotInstance.VCpuType)
 	if spotInstance.CloudNetworkType != nil {
-		data.CloudNetworkType = types.StringValue(*spotInstance.CloudNetworkType)
+		stateData.CloudNetworkType = types.StringValue(*spotInstance.CloudNetworkType)
 	}
-	if spotInstance.SecurityGroup != nil {
-		data.SecurityGroupId = types.Int64Value(int64(*spotInstance.SecurityGroup.Id))
+	if (planData != nil && !planData.SecurityGroupId.IsUnknown() && !planData.SecurityGroupId.IsNull()) ||
+		(!stateData.SecurityGroupId.IsUnknown() && !stateData.SecurityGroupId.IsNull()) {
+		stateData.SecurityGroupId = types.Int64Value(int64(*spotInstance.SecurityGroup.Id))
 	}
-	data.RamGb = types.Int64Value(int64(*spotInstance.RamGb))
-	data.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
-	data.OsId = types.Int64Value(int64(*spotInstance.Os.Id))
+	stateData.RamGb = types.Int64Value(int64(*spotInstance.RamGb))
+	stateData.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
+	stateData.OsId = types.Int64Value(int64(*spotInstance.Os.Id))
 	if spotInstance.DataCenter != nil {
-		data.DataCenterId = types.StringValue(*spotInstance.DataCenter.Id)
+		stateData.DataCenterId = types.StringValue(*spotInstance.DataCenter.Id)
 	}
 }
 

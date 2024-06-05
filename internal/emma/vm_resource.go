@@ -20,7 +20,6 @@ import (
 	"strconv"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var _ resource.Resource = &vmResource{}
 
 func NewVmResource() resource.Resource {
@@ -85,10 +84,11 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 			"1. Select a data center using the `emma_data_center` data source. The data center determines the provider " +
 			"and location of the virtual machine.\n\n" +
 			"2. Select an available hardware configuration for the virtual machine.\n\n" +
-			"3. Select an SSH key for the virtual machine.\n\n" +
+			"3. Select or create an SSH key for the virtual machine using the `emma_ssh_key` resource.\n\n" +
 			"4. Select an operating system using the `emma_operating_system` data source.\n\n" +
-			"5. Choose one of the cloud network types: _multi-cloud_, _isolated,_ or _default_. Choose the _multi-cloud_ " +
+			"5. Choose one of the cloud network types: multi-cloud, isolated, or default. Choose the multi-cloud " +
 			"network type if you need to connect compute instances from different providers.\n\n" +
+			"6. Select or create an security group for the virtual machine using the `emma_security_group` resource. " +
 			"You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -120,7 +120,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
-				Description:   "Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, virtual machine will be recreated after changing this value",
+				Description:   "Cloud network type, available values: multi-cloud, isolated, or default, virtual machine will be recreated after changing this value",
 				Computed:      false,
 				Required:      true,
 				Optional:      false,
@@ -128,7 +128,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:    []validator.String{emma.CloudNetworkType{}},
 			},
 			"vcpu_type": schema.StringAttribute{
-				Description: "Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, virtual machine will be recreated after changing this value",
+				Description: "Type of virtual Central Processing Units (vCPUs), available values: shared, standard or hpc, virtual machine will be recreated after changing this value",
 				Computed:    false,
 				Required:    true,
 				Optional:    false,
@@ -148,7 +148,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
-				Description:   "Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, the process of edit hardware will start after changing this value",
+				Description:   "Volume type of the compute instance, available values: ssd or ssd-plus, the process of edit hardware will start after changing this value",
 				Required:      true,
 				Optional:      false,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -353,7 +353,7 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 		} else {
 			vmId := tools.StringToInt32(stateData.Id.ValueString())
 			securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &vmId}
-			_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
+			vm, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
 				int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
 			if err != nil {
 				resp.Diagnostics.AddError("Client Error",
@@ -362,6 +362,7 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 				return
 			}
 			stateData.SecurityGroupId = planData.SecurityGroupId
+			ConvertVmResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
 		}
 	}
 

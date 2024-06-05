@@ -19,7 +19,6 @@ import (
 	"time"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var _ resource.Resource = &securityGroupResource{}
 
 func NewSecurityGroupResource() resource.Resource {
@@ -56,68 +55,80 @@ func (r *securityGroupResource) Metadata(ctx context.Context, req resource.Metad
 func (r *securityGroupResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "SecurityGroup resource",
+		Description: "This resource creates a security group.\n\n" +
+			"A security group refers to a set of rules that determine what network traffic is allowed to enter or leave " +
+			"a particular compute instance. It acts as a virtual firewall, controlling inbound and outbound traffic " +
+			"based on predefined rules.\n\n" +
+			"Security groups operate based on predefined rules that allow traffic based on specified criteria, such as " +
+			"source IP address, destination IP address, port number, and protocol.\n\n" +
+			"When creating a security group, provide its name and a set of inbound and outbound rules. You can only " +
+			"define rules that allow traffic, not deny it. All traffic is denied except for explicitly allowed traffic.\n\n" +
+			"Security groups control TCP, SCTP, GRE, ESP, AH, UDP, and ICMP protocols, or all the selected protocols at once.\n\n" +
+			"After creating a security group, a set of default rules is added to the security group. These rules are " +
+			"immutable, and you can't edit or delete them.\n\n" +
+			"All traffic in the selected protocol is allowed if the IP range in a rule is set to `0.0.0.0/0`.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "SecurityGroup id configurable attribute",
-				Computed:            true,
+				Description: "ID of the security group",
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "SecurityGroup name configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.NotEmptyString{}},
+				Description: "Security group name",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.String{emma.NotEmptyString{}},
 			},
 			"synchronization_status": schema.StringAttribute{
-				MarkdownDescription: "SecurityGroup synchronization_status configurable attribute",
-				Computed:            true,
+				Description: "Synchronization status of the security group. When you make changes in the rules the changes are propagated to the respective provider’s security groups. While this is happening the security groups have the status Synchronizing. After it is done the status changes to Synchronized. When another VM is added to the security group it will not be synchronized at first with the other VMs, therefore the status will be Desynchronized.",
+				Computed:    true,
 			},
 			"recomposing_status": schema.StringAttribute{
-				MarkdownDescription: "SecurityGroup recomposing_status configurable attribute",
-				Computed:            true,
+				Description: "Recomposing status of the security group. When a new Virtual machine is added to the Security group it starts a synchronization process. During this process the Security group will have a Recomposing status.",
+				Computed:    true,
 			},
 			"last_modification_error_description": schema.StringAttribute{
-				MarkdownDescription: "SecurityGroup last_modification_error_description configurable attribute",
-				Computed:            true,
-				Required:            false,
-				Optional:            true,
+				Description: "Text of the error when the Security group was last edited",
+				Computed:    true,
+				Required:    false,
+				Optional:    true,
 			},
 			"rules": schema.ListNestedAttribute{
-				Computed:   false,
-				Required:   true,
-				Optional:   false,
-				Validators: []validator.List{emma.NotEmptyList{}},
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.List{emma.NotEmptyList{}},
+				Description: "List of the inbound and outbound rules in the Security group",
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"direction": schema.StringAttribute{
-							MarkdownDescription: "SecurityGroup rules direction configurable attribute",
-							Computed:            false,
-							Required:            true,
-							Optional:            false,
-							Validators:          []validator.String{emma.Direction{}},
+							Description: "Direction of the network traffic, available values: INBOUND or OUTBOUND",
+							Computed:    false,
+							Required:    true,
+							Optional:    false,
+							Validators:  []validator.String{emma.Direction{}},
 						},
 						"protocol": schema.StringAttribute{
-							MarkdownDescription: "SecurityGroup rules protocol configurable attribute",
-							Computed:            false,
-							Required:            true,
-							Optional:            false,
-							Validators:          []validator.String{emma.Protocol{}},
+							Description: "Network protocol, available values: all, TCP, SCTP, GRE, ESP, AH, UDP or ICMP",
+							Computed:    false,
+							Required:    true,
+							Optional:    false,
+							Validators:  []validator.String{emma.Protocol{}},
 						},
 						"ports": schema.StringAttribute{
-							MarkdownDescription: "SecurityGroup rules ports configurable attribute",
-							Computed:            false,
-							Required:            true,
-							Optional:            false,
-							Validators:          []validator.String{emma.PortRange{}},
+							Description: "Allowed port or port range, available values: port number (8080), port range (1000-1005), all ports (all)",
+							Computed:    false,
+							Required:    true,
+							Optional:    false,
+							Validators:  []validator.String{emma.PortRange{}},
 						},
 						"ip_range": schema.StringAttribute{
-							MarkdownDescription: "SecurityGroup rules ip_range configurable attribute",
-							Computed:            false,
-							Required:            true,
-							Optional:            false,
-							Validators:          []validator.String{emma.IpRange{}},
+							Description: "Allowed IP or IP range, available values: ip (8.8.8.8), ip range (8.8.8.8\\32), all ip addresses (0.0.0.0\\0)",
+							Computed:    false,
+							Required:    true,
+							Optional:    false,
+							Validators:  []validator.String{emma.IpRange{}},
 						},
 					},
 				},

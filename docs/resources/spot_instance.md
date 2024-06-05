@@ -3,12 +3,43 @@
 page_title: "emma_spot_instance Resource - emma"
 subcategory: ""
 description: |-
-  SpotInstance resource
+  This resource creates a spot instance according to the specified parameters.
+  A Spot Instance is a specialized compute instance that allows you to access and utilize unused instance capacity at a steeply discounted rate. Spot price is charged on an hourly basis.
+  To create a spot instance, follow these steps:
+  
+  Select a data center using the emma_data_center data source. The data center determines the provider and location of the spot instance.
+  Select an available hardware configuration for the spot instance.
+  Select or create an SSH key for the spot instance using the emma_ssh_key resource.
+  Select an operating system using the emma_operating_system data source.
+  Choose one of the cloud network types: multi-cloud, isolated, or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
+  Select or create an security group for the spot instance using the emma_security_group resource. You may choose not to specify a security group. In this case, the spot instance will be added to the default security group.
+  A price field of a spot instance is not required.
+  The spot instance market operates on a bidding system. Your specified price acts as your bid in this market. If your bid is higher than the current spot price, your instance request will likely be fulfilled. However, if the market price exceeds your bid, your instance may not be launched or could be terminated if already running.
 ---
 
 # emma_spot_instance (Resource)
 
-SpotInstance resource
+This resource creates a spot instance according to the specified parameters.
+
+A Spot Instance is a specialized compute instance that allows you to access and utilize unused instance capacity at a steeply discounted rate. Spot price is charged on an hourly basis.
+
+To create a spot instance, follow these steps:
+
+1. Select a data center using the `emma_data_center` data source. The data center determines the provider and location of the spot instance.
+
+2. Select an available hardware configuration for the spot instance.
+
+3. Select or create an SSH key for the spot instance using the `emma_ssh_key` resource.
+
+4. Select an operating system using the `emma_operating_system` data source.
+
+5. Choose one of the cloud network types: _multi-cloud, isolated,_ or _default_. Choose the _multi-cloud_ network type if you need to connect compute instances from different providers.
+
+6. Select or create an security group for the spot instance using the `emma_security_group` resource. You may choose not to specify a security group. In this case, the spot instance will be added to the default security group.
+
+A `price` field of a spot instance is not required.
+
+The spot instance market operates on a bidding system. Your specified price acts as your bid in this market. If your bid is higher than the current spot price, your instance request will likely be fulfilled. However, if the market price exceeds your bid, your instance may not be launched or could be terminated if already running.
 
 ## Example Usage
 
@@ -34,38 +65,38 @@ resource "emma_spot_instance" "spot_instance" {
 
 ### Required
 
-- `cloud_network_type` (String) SpotInstance cloud_network_type configurable attribute
-- `data_center_id` (String) SpotInstance data_center_id configurable attribute
-- `name` (String) SpotInstance name configurable attribute
-- `os_id` (Number) SpotInstance os_id configurable attribute
-- `price` (Number) SpotInstance price configurable attribute
-- `ram_gb` (Number) SpotInstance ram_gb configurable attribute
-- `ssh_key_id` (Number) SpotInstance ssh_key_id configurable attribute
-- `vcpu` (Number) SpotInstance vcpu configurable attribute
-- `vcpu_type` (String) SpotInstance vcpu_type configurable attribute
-- `volume_gb` (Number) SpotInstance volume_gb configurable attribute
-- `volume_type` (String) SpotInstance volume_type configurable attribute
+- `cloud_network_type` (String) Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, spot instance will be recreated after changing this value
+- `data_center_id` (String) Data center ID of the spot instance, spot instance will be recreated after changing this value
+- `name` (String) Name of the spot instance, spot instance will be recreated after changing this value
+- `os_id` (Number) Operating system ID of the spot instance, spot instance will be recreated after changing this value
+- `price` (Number) Offer price of the spot instance, spot instance will be recreated after changing this value
+- `ram_gb` (Number) Capacity of the RAM in gigabytes, spot instance will be recreated after changing this value
+- `ssh_key_id` (Number) Ssh key ID of the spot instance, spot instance will be recreated after changing this value
+- `vcpu` (Number) Number of virtual Central Processing Units (vCPUs), spot instance will be recreated after changing this value
+- `vcpu_type` (String) Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, spot instance will be recreated after changing this value
+- `volume_gb` (Number) Volume size in gigabytes, spot instance will be recreated after changing this value
+- `volume_type` (String) Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, spot instance will be recreated after changing this value
 
 ### Optional
 
-- `security_group_id` (Number) SpotInstance security_group_id configurable attribute
+- `security_group_id` (Number) Security group ID of the spot instance, the process of changing the security group will start after changing this value
 
 ### Read-Only
 
 - `cost` (Attributes) (see [below for nested schema](#nestedatt--cost))
 - `disks` (Attributes List) (see [below for nested schema](#nestedatt--disks))
-- `id` (String) SpotInstance id configurable attribute
+- `id` (String) ID of the spot instance
 - `networks` (Attributes List) (see [below for nested schema](#nestedatt--networks))
-- `status` (String) SpotInstance status configurable attribute
+- `status` (String) Status of the spot instance
 
 <a id="nestedatt--cost"></a>
 ### Nested Schema for `cost`
 
 Read-Only:
 
-- `currency` (String) SpotInstance cost currency configurable attribute
-- `price` (Number) SpotInstance cost price configurable attribute
-- `unit` (String) SpotInstance cost unit configurable attribute
+- `currency` (String) Currency of cost
+- `price` (Number) Cost of the spot instance for the period
+- `unit` (String) Cost period
 
 
 <a id="nestedatt--disks"></a>
@@ -73,11 +104,11 @@ Read-Only:
 
 Read-Only:
 
-- `id` (Number) SpotInstance disks id configurable attribute
-- `is_bootable` (Boolean) SpotInstance disks is_bootable configurable attribute
-- `size_gb` (Number) SpotInstance disks size_gb configurable attribute
-- `type` (String) SpotInstance disks type configurable attribute
-- `type_id` (Number) SpotInstance disks type_id configurable attribute
+- `id` (Number) Volume ID
+- `is_bootable` (Boolean) Indicates whether the volume is bootable or not
+- `size_gb` (Number) Volume size in gigabytes
+- `type` (String) Volume type
+- `type_id` (Number) ID of the volume type
 
 
 <a id="nestedatt--networks"></a>
@@ -85,7 +116,7 @@ Read-Only:
 
 Read-Only:
 
-- `id` (Number) SpotInstance networks id configurable attribute
-- `ip` (String) SpotInstance networks ip configurable attribute
-- `network_type` (String) SpotInstance networks network_type configurable attribute
-- `network_type_id` (Number) SpotInstance networks network_type_id configurable attribute
+- `id` (Number) Network ID
+- `ip` (String) Network IP
+- `network_type` (String) Network type
+- `network_type_id` (Number) ID of the network type

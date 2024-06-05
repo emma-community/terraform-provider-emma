@@ -51,11 +51,11 @@ type VolumeType struct {
 }
 
 func (v VolumeType) Description(ctx context.Context) string {
-	return "volume_type can contain ssh or ssd-plus"
+	return "volume_type can contain ssd or ssd-plus"
 }
 
 func (v VolumeType) MarkdownDescription(ctx context.Context) string {
-	return "volume_type can contain ssh or ssd-plus"
+	return "volume_type can contain ssd or ssd-plus"
 }
 
 func (v VolumeType) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
@@ -63,6 +63,6 @@ func (v VolumeType) ValidateString(ctx context.Context, req validator.StringRequ
 		return
 	}
 	if req.ConfigValue.ValueString() != "ssd" && req.ConfigValue.ValueString() != "ssd-plus" {
-		resp.Diagnostics.AddError("Validation Error", req.Path.String()+" can contain ssh or ssd-plus")
+		resp.Diagnostics.AddError("Validation Error", req.Path.String()+" can contain ssd or ssd-plus")
 	}
 }

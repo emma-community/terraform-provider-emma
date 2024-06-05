@@ -3,12 +3,12 @@
 page_title: "emma_data_center Data Source - emma"
 subcategory: ""
 description: |-
-  Data center data sources
+  All compute instances are created in data centers. The data center ID is necessary for creating any compute instance.
 ---
 
 # emma_data_center (Data Source)
 
-Data center data sources
+All compute instances are created in data centers. The data center ID is necessary for creating any compute instance.
 
 ## Example Usage
 
@@ -24,12 +24,12 @@ data "emma_data_center" "aws" {
 
 ### Optional
 
-- `location_id` (Number) Data center location_id
-- `name` (String) Data center name
-- `provider_name` (String) Data center provider_name
+- `location_id` (Number) ID of the data center location
+- `name` (String) Name of the cloud provider's data center
+- `provider_name` (String) Name of the cloud provider that owns the data center
 
 ### Read-Only
 
-- `id` (String) Data center id
-- `location_name` (String) Data center location_name
-- `provider_id` (Number) Data center provider_id
+- `id` (String) ID of the cloud provider's data center
+- `location_name` (String) Name of the data center location (city or state)
+- `provider_id` (Number) ID of the cloud provider that owns the data center

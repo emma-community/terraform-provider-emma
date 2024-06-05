@@ -44,19 +44,27 @@ func (p *Provider) Metadata(_ context.Context, _ provider.MetadataRequest, resp 
 // Schema defines the provider-level schema for configuration data.
 func (p *Provider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "This Terraform Provider Emma " +
+			"allows you to manage multi-cloud resources. The [emma platform](https://www.emma.ms/) empowers you to " +
+			"effortlessly deploy and manage cloud resources across diverse environments, spanning on-premises, " +
+			"private, and public clouds. Whether you're a seasoned cloud professional honing your multi-cloud setup " +
+			"or diving into cloud management for the first time, our cloud-agnostic approach guarantees freedom to " +
+			"leverage the right cloud services you need.",
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
 				Optional: true,
 				Required: false,
 			},
 			"client_id": schema.StringAttribute{
-				Optional: false,
-				Required: true,
+				Optional:    false,
+				Required:    true,
+				Description: "Client ID from the Service application in the project",
 			},
 			"client_secret": schema.StringAttribute{
-				Optional:  false,
-				Required:  true,
-				Sensitive: true,
+				Optional:    false,
+				Required:    true,
+				Sensitive:   true,
+				Description: "Client secret from the Service application in the project",
 			},
 		},
 	}

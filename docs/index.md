@@ -3,19 +3,28 @@
 page_title: "emma Provider"
 subcategory: ""
 description: |-
-  
+  This Terraform Provider Emma allows you to manage multi-cloud resources. The emma platform https://www.emma.ms/ empowers you to effortlessly deploy and manage cloud resources across diverse environments, spanning on-premises, private, and public clouds. Whether you're a seasoned cloud professional honing your multi-cloud setup or diving into cloud management for the first time, our cloud-agnostic approach guarantees freedom to leverage the right cloud services you need.
 ---
 
 # emma Provider
 
-
+This Terraform Provider Emma allows you to manage multi-cloud resources. The [emma platform](https://www.emma.ms/) empowers you to effortlessly deploy and manage cloud resources across diverse environments, spanning on-premises, private, and public clouds. Whether you're a seasoned cloud professional honing your multi-cloud setup or diving into cloud management for the first time, our cloud-agnostic approach guarantees freedom to leverage the right cloud services you need.
 
 ## Example Usage
 
 ```terraform
+terraform {
+  required_providers {
+    emma = {
+      source  = "emma-community/emma"
+      version = "0.0.1-alpha"
+    }
+  }
+}
+
 provider "emma" {
-  client_id     = "client_id"
-  client_secret = "client_secret"
+  client_id     = "your client id"
+  client_secret = "your client secret"
 }
 ```
 
@@ -24,8 +33,8 @@ provider "emma" {
 
 ### Required
 
-- `client_id` (String)
-- `client_secret` (String, Sensitive)
+- `client_id` (String) Client ID from the Service application in the project
+- `client_secret` (String, Sensitive) Client secret from the Service application in the project
 
 ### Optional
 

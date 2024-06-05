@@ -90,7 +90,7 @@ func TestVolumeType_ValidateString_InvalidValue(t *testing.T) {
 	assert.Equal(t, 1, resp.Diagnostics.ErrorsCount())
 	if resp.Diagnostics.HasError() {
 		actualMsg := resp.Diagnostics.Errors()[0].Detail()
-		assert.Equal(t, "test can contain ssh or ssd-plus", actualMsg)
+		assert.Equal(t, "test can contain ssd or ssd-plus", actualMsg)
 	} else {
 		assert.Fail(t, "Is valid volume_type value: test")
 	}

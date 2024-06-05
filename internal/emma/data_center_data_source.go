@@ -41,39 +41,37 @@ func (d *dataCenterDataSource) Metadata(ctx context.Context, req datasource.Meta
 
 func (d *dataCenterDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Data center data sources",
+		Description: "All compute instances are created in data centers. The data center ID is necessary for creating any compute instance.",
 		Attributes: map[string]schema.Attribute{
-
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Data center id",
-				Computed:            true,
+				Description: "ID of the cloud provider's data center",
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Data center name",
-				Computed:            true,
-				Required:            false,
-				Optional:            true,
+				Description: "Name of the cloud provider's data center",
+				Computed:    true,
+				Required:    false,
+				Optional:    true,
 			},
 			"provider_name": schema.StringAttribute{
-				MarkdownDescription: "Data center provider_name",
-				Computed:            true,
-				Required:            false,
-				Optional:            true,
+				Description: "Name of the cloud provider that owns the data center",
+				Computed:    true,
+				Required:    false,
+				Optional:    true,
 			},
 			"provider_id": schema.Int64Attribute{
-				MarkdownDescription: "Data center provider_id",
-				Computed:            true,
+				Description: "ID of the cloud provider that owns the data center",
+				Computed:    true,
 			},
 			"location_id": schema.Int64Attribute{
-				MarkdownDescription: "Data center location_id",
-				Computed:            true,
-				Required:            false,
-				Optional:            true,
+				Description: "ID of the data center location",
+				Computed:    true,
+				Required:    false,
+				Optional:    true,
 			},
 			"location_name": schema.StringAttribute{
-				MarkdownDescription: "Data center location_name",
-				Computed:            true,
+				Description: "Name of the data center location (city or state)",
+				Computed:    true,
 			},
 		},
 	}

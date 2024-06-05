@@ -3,6 +3,7 @@ package emma
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"regexp"
 )
 
 type CloudNetworkType struct {
@@ -64,5 +65,26 @@ func (v VolumeType) ValidateString(ctx context.Context, req validator.StringRequ
 	}
 	if req.ConfigValue.ValueString() != "ssd" && req.ConfigValue.ValueString() != "ssd-plus" {
 		resp.Diagnostics.AddError("Validation Error", req.Path.String()+" can contain ssd or ssd-plus")
+	}
+}
+
+type VmName struct {
+}
+
+func (v VmName) Description(ctx context.Context) string {
+	return "name must be less than 63 characters, start with a lowercase letter, end with a lowercase alphanumeric, and use only lowercase alphanumeric and hyphens in-between"
+}
+
+func (v VmName) MarkdownDescription(ctx context.Context) string {
+	return "name must be less than 63 characters, start with a lowercase letter, end with a lowercase alphanumeric, and use only lowercase alphanumeric and hyphens in-between"
+}
+
+func (v VmName) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
+		return
+	}
+	matches, _ := regexp.MatchString(`^([a-z](?:[0-9a-z-]{0,61}[0-9a-z]))$`, req.ConfigValue.ValueString())
+	if !matches {
+		resp.Diagnostics.AddError("Validation Error", req.Path.String()+" must be less than 63 characters, start with a lowercase letter, end with a lowercase alphanumeric, and use only lowercase alphanumeric and hyphens in-between")
 	}
 }

@@ -65,7 +65,7 @@ func (r *sshKeyResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Computed:    false,
 				Required:    true,
 				Optional:    false,
-				Validators:  []validator.String{emma.NotBlankString{}},
+				Validators:  []validator.String{emma.NotBlankString{}, emma.SshKeyName{}},
 			},
 			"key": schema.StringAttribute{
 				Description:   "SSH public key, ssh key will be recreated after changing this value",

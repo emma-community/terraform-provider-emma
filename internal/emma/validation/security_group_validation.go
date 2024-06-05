@@ -104,6 +104,27 @@ func (v Protocol) ValidateString(ctx context.Context, req validator.StringReques
 	}
 }
 
+type SecurityGroupName struct {
+}
+
+func (v SecurityGroupName) Description(ctx context.Context) string {
+	return "name must be less than 63 characters, start with a lowercase letter, end with a lowercase alphanumeric, and use only lowercase alphanumeric and hyphens in-between"
+}
+
+func (v SecurityGroupName) MarkdownDescription(ctx context.Context) string {
+	return "name must be less than 63 characters, start with a lowercase letter, end with a lowercase alphanumeric, and use only lowercase alphanumeric and hyphens in-between"
+}
+
+func (v SecurityGroupName) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
+		return
+	}
+	matches, _ := regexp.MatchString(`^([a-z](?:[0-9a-z-]{0,61}[0-9a-z]))$`, req.ConfigValue.ValueString())
+	if !matches {
+		resp.Diagnostics.AddError("Validation Error", req.Path.String()+" must be less than 63 characters, start with a lowercase letter, end with a lowercase alphanumeric, and use only lowercase alphanumeric and hyphens in-between")
+	}
+}
+
 func isValidPortsValue(ports string) bool {
 	if ports == AnyPort {
 		return true

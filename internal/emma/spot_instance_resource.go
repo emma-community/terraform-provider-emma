@@ -111,7 +111,7 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				Required:      true,
 				Optional:      false,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    []validator.String{emma.NotEmptyString{}},
+				Validators:    []validator.String{emma.NotEmptyString{}, emma.VmName{}},
 			},
 			"data_center_id": schema.StringAttribute{
 				Description:   "Data center ID of the spot instance, spot instance will be recreated after changing this value",

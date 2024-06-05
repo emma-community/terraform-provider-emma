@@ -78,7 +78,7 @@ func (r *securityGroupResource) Schema(ctx context.Context, req resource.SchemaR
 				Computed:    false,
 				Required:    true,
 				Optional:    false,
-				Validators:  []validator.String{emma.NotEmptyString{}},
+				Validators:  []validator.String{emma.NotEmptyString{}, emma.SecurityGroupName{}},
 			},
 			"synchronization_status": schema.StringAttribute{
 				Description: "Synchronization status of the security group. When you make changes in the rules the changes are propagated to the respective provider’s security groups. While this is happening the security groups have the status Synchronizing. After it is done the status changes to Synchronized. When another VM is added to the security group it will not be synchronized at first with the other VMs, therefore the status will be Desynchronized.",
@@ -291,7 +291,7 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 	i := 0
-	for i < 60 {
+	for i < 36 {
 		i++
 		securityGroup, response, err := r.apiClient.SecurityGroupsAPI.GetSecurityGroup(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
 		if *securityGroup.SynchronizationStatus != "SYNCHRONIZED" || *securityGroup.RecomposingStatus != "RECOMPOSED" {

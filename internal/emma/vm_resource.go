@@ -40,8 +40,8 @@ type vmResourceModel struct {
 	DataCenterId     types.String `tfsdk:"data_center_id"`
 	OsId             types.Int64  `tfsdk:"os_id"`
 	CloudNetworkType types.String `tfsdk:"cloud_network_type"`
-	VcpuType         types.String `tfsdk:"vcpu_type"`
-	Vcpu             types.Int64  `tfsdk:"vcpu"`
+	VCpuType         types.String `tfsdk:"vcpu_type"`
+	VCpu             types.Int64  `tfsdk:"vcpu"`
 	RamGb            types.Int64  `tfsdk:"ram_gb"`
 	VolumeType       types.String `tfsdk:"volume_type"`
 	VolumeGb         types.Int64  `tfsdk:"volume_gb"`
@@ -85,10 +85,11 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 			"1. Select a data center using the `emma_data_center` data source. The data center determines the provider " +
 			"and location of the virtual machine.\n\n" +
 			"2. Select an available hardware configuration for the virtual machine.\n\n" +
-			"3. Select an SSH key for the virtual machine.\n\n" +
+			"3. Select or create an SSH key for the virtual machine using the `emma_ssh_key` resource.\n\n" +
 			"4. Select an operating system using the `emma_operating_system` data source.\n\n" +
-			"5. Choose one of the cloud network types: _multi-cloud_, _isolated,_ or _default_. Choose the _multi-cloud_ " +
+			"5. Choose one of the cloud network types: multi-cloud, isolated or default. Choose the multi-cloud " +
 			"network type if you need to connect compute instances from different providers.\n\n" +
+			"6. Select or create an security group for the virtual machine using the `emma_security_group` resource. " +
 			"You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -101,7 +102,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Required:      true,
 				Optional:      false,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Validators:    []validator.String{emma.NotEmptyString{}},
+				Validators:    []validator.String{emma.NotEmptyString{}, emma.VmName{}},
 			},
 			"data_center_id": schema.StringAttribute{
 				Description:   "Data center ID of the virtual machine, virtual machine will be recreated after changing this value",
@@ -120,7 +121,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
-				Description:   "Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, virtual machine will be recreated after changing this value",
+				Description:   "Cloud network type, available values: multi-cloud, isolated or default, virtual machine will be recreated after changing this value",
 				Computed:      false,
 				Required:      true,
 				Optional:      false,
@@ -128,7 +129,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:    []validator.String{emma.CloudNetworkType{}},
 			},
 			"vcpu_type": schema.StringAttribute{
-				Description: "Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, virtual machine will be recreated after changing this value",
+				Description: "Type of virtual Central Processing Units (vCPUs), available values: shared, standard or hpc, virtual machine will be recreated after changing this value",
 				Computed:    false,
 				Required:    true,
 				Optional:    false,
@@ -148,7 +149,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
-				Description:   "Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, the process of edit hardware will start after changing this value",
+				Description:   "Volume type of the compute instance, available values: ssd or ssd-plus, the process of edit hardware will start after changing this value",
 				Required:      true,
 				Optional:      false,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
@@ -353,7 +354,7 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 		} else {
 			vmId := tools.StringToInt32(stateData.Id.ValueString())
 			securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &vmId}
-			_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
+			vm, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
 				int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
 			if err != nil {
 				resp.Diagnostics.AddError("Client Error",
@@ -362,16 +363,17 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 				return
 			}
 			stateData.SecurityGroupId = planData.SecurityGroupId
+			ConvertVmResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
 		}
 	}
 
-	if !planData.RamGb.Equal(stateData.RamGb) || !planData.Vcpu.Equal(stateData.Vcpu) ||
-		!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VcpuType.Equal(stateData.VcpuType) {
+	if !planData.RamGb.Equal(stateData.RamGb) || !planData.VCpu.Equal(stateData.VCpu) ||
+		!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VCpuType.Equal(stateData.VCpuType) {
 
 		vmActionEditHardwareRequest := emmaSdk.VmActionsRequest{}
-		vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.Vcpu.ValueInt64()),
+		vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.VCpu.ValueInt64()),
 			int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
-		vmEditHardware.VCpuType = planData.VcpuType.ValueStringPointer()
+		vmEditHardware.VCpuType = planData.VCpuType.ValueStringPointer()
 		vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
 		vm, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth,
 			tools.StringToInt32(stateData.Id.ValueString())).VmActionsRequest(vmActionEditHardwareRequest).Execute()
@@ -430,8 +432,8 @@ func ConvertToVmCreateRequest(data vmResourceModel, vmCreate *emmaSdk.VmCreate) 
 	vmCreate.DataCenterId = data.DataCenterId.ValueString()
 	vmCreate.OsId = int32(data.OsId.ValueInt64())
 	vmCreate.CloudNetworkType = data.CloudNetworkType.ValueString()
-	vmCreate.VCpuType = data.VcpuType.ValueString()
-	vmCreate.VCpu = int32(data.Vcpu.ValueInt64())
+	vmCreate.VCpuType = data.VCpuType.ValueString()
+	vmCreate.VCpu = int32(data.VCpu.ValueInt64())
 	vmCreate.RamGb = int32(data.RamGb.ValueInt64())
 	vmCreate.VolumeType = data.VolumeType.ValueString()
 	vmCreate.VolumeGb = int32(data.VolumeGb.ValueInt64())
@@ -484,8 +486,8 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, stateData *vmR
 	stateData.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
 
-	stateData.Vcpu = planData.Vcpu
-	stateData.VcpuType = planData.VcpuType
+	stateData.VCpu = planData.VCpu
+	stateData.VCpuType = planData.VCpuType
 	stateData.VolumeGb = planData.VolumeGb
 	stateData.RamGb = planData.RamGb
 }
@@ -537,8 +539,8 @@ func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
 	stateData.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
-	stateData.Vcpu = types.Int64Value(int64(*vm.VCpu))
-	stateData.VcpuType = types.StringValue(*vm.VCpuType)
+	stateData.VCpu = types.Int64Value(int64(*vm.VCpu))
+	stateData.VCpuType = types.StringValue(*vm.VCpuType)
 	if vm.CloudNetworkType != nil {
 		stateData.CloudNetworkType = types.StringValue(*vm.CloudNetworkType)
 	}

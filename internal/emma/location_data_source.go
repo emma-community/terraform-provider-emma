@@ -37,19 +37,17 @@ func (d *locationDataSource) Metadata(ctx context.Context, req datasource.Metada
 
 func (d *locationDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Provider data source",
-
+		Description: "Locations are cities or states (in the case of the USA) where providers have data centers.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				MarkdownDescription: "Provider id",
-				Computed:            true,
+				Description: "ID of the geographical location",
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Provider name",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
+				Description: "Name of the geographical location (city or state)",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
 			},
 		},
 	}

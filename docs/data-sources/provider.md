@@ -3,12 +3,12 @@
 page_title: "emma_provider Data Source - emma"
 subcategory: ""
 description: |-
-  Provider data source
+  Cloud service provider is a third-party company that provides scalable computing resources that users can access over emma platform. When you create any computing resources in emma you create them in the provider's datacenters. Provider is necessary when you select a data center for creating compute instances.
 ---
 
 # emma_provider (Data Source)
 
-Provider data source
+Cloud service provider is a third-party company that provides scalable computing resources that users can access over emma platform. When you create any computing resources in emma you create them in the provider's datacenters. Provider is necessary when you select a data center for creating compute instances.
 
 ## Example Usage
 
@@ -23,8 +23,8 @@ data "emma_provider" "aws" {
 
 ### Required
 
-- `name` (String) Provider name
+- `name` (String) Name of the cloud provider
 
 ### Read-Only
 
-- `id` (Number) Provider id
+- `id` (Number) ID of the cloud provider

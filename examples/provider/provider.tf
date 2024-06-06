@@ -1,4 +1,13 @@
+terraform {
+  required_providers {
+    emma = {
+      source  = "emma-community/emma"
+      version = "0.0.1-alpha"
+    }
+  }
+}
+
 provider "emma" {
-  client_id     = "client_id"
-  client_secret = "client_secret"
+  client_id     = "your client id"
+  client_secret = "your client secret"
 }

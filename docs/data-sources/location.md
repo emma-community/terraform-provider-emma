@@ -3,12 +3,12 @@
 page_title: "emma_location Data Source - emma"
 subcategory: ""
 description: |-
-  Provider data source
+  Locations are cities or states (in the case of the USA) where providers have data centers.
 ---
 
 # emma_location (Data Source)
 
-Provider data source
+Locations are cities or states (in the case of the USA) where providers have data centers.
 
 ## Example Usage
 
@@ -23,8 +23,8 @@ data "emma_location" "stockholm" {
 
 ### Required
 
-- `name` (String) Provider name
+- `name` (String) Name of the geographical location (city or state)
 
 ### Read-Only
 
-- `id` (Number) Provider id
+- `id` (Number) ID of the geographical location

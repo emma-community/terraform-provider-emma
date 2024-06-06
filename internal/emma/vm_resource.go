@@ -11,6 +11,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -37,8 +40,8 @@ type vmResourceModel struct {
 	DataCenterId     types.String `tfsdk:"data_center_id"`
 	OsId             types.Int64  `tfsdk:"os_id"`
 	CloudNetworkType types.String `tfsdk:"cloud_network_type"`
-	VcpuType         types.String `tfsdk:"vcpu_type"`
-	Vcpu             types.Int64  `tfsdk:"vcpu"`
+	VCpuType         types.String `tfsdk:"vcpu_type"`
+	VCpu             types.Int64  `tfsdk:"vcpu"`
 	RamGb            types.Int64  `tfsdk:"ram_gb"`
 	VolumeType       types.String `tfsdk:"volume_type"`
 	VolumeGb         types.Int64  `tfsdk:"volume_gb"`
@@ -77,116 +80,130 @@ func (r *vmResource) Metadata(ctx context.Context, req resource.MetadataRequest,
 
 func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Vm resource",
-
+		Description: "This resource creates a virtual machine according to the specified parameters.\n\n" +
+			"To create a virtual machine, follow these steps:\n\n" +
+			"1. Select a data center using the `emma_data_center` data source. The data center determines the provider " +
+			"and location of the virtual machine.\n\n" +
+			"2. Select an available hardware configuration for the virtual machine.\n\n" +
+			"3. Select or create an SSH key for the virtual machine using the `emma_ssh_key` resource.\n\n" +
+			"4. Select an operating system using the `emma_operating_system` data source.\n\n" +
+			"5. Choose one of the cloud network types: multi-cloud, isolated or default. Choose the multi-cloud " +
+			"network type if you need to connect compute instances from different providers.\n\n" +
+			"6. Select or create an security group for the virtual machine using the `emma_security_group` resource. " +
+			"You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				MarkdownDescription: "Vm id configurable attribute",
-				Computed:            true,
+				Description: "ID of the virtual machine",
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Vm name configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.NotEmptyString{}},
+				Description:   "Name of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.NotEmptyString{}, emma.VmName{}},
 			},
 			"data_center_id": schema.StringAttribute{
-				MarkdownDescription: "Vm data_center_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.NotEmptyString{}},
+				Description:   "Data center ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.NotEmptyString{}},
 			},
 			"os_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm os_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Operating system ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
-				MarkdownDescription: "Vm cloud_network_type configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.CloudNetworkType{}},
+				Description:   "Cloud network type, available values: multi-cloud, isolated or default, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.CloudNetworkType{}},
 			},
 			"vcpu_type": schema.StringAttribute{
-				MarkdownDescription: "Vm vcpu_type configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.VCpuType{}},
+				Description: "Type of virtual Central Processing Units (vCPUs), available values: shared, standard or hpc, virtual machine will be recreated after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.String{emma.VCpuType{}},
 			},
 			"vcpu": schema.Int64Attribute{
-				MarkdownDescription: "Vm vcpu configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Number of virtual Central Processing Units (vCPUs), the process of edit hardware will start after changing this value",
+				Computed:    false,
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ram_gb": schema.Int64Attribute{
-				MarkdownDescription: "Vm ram_gb configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Capacity of the RAM in gigabytes, the process of edit hardware will start after changing this value",
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
-				MarkdownDescription: "Vm volume_type configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.String{emma.VolumeType{}},
+				Description:   "Volume type of the compute instance, available values: ssd or ssd-plus, the process of edit hardware will start after changing this value",
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.VolumeType{}},
 			},
 			"volume_gb": schema.Int64Attribute{
-				MarkdownDescription: "Vm volume_gb configurable attribute",
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Volume size in gigabytes, the process of edit hardware will start after changing this value",
+				Required:    true,
+				Optional:    false,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"ssh_key_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm ssh_key_id configurable attribute",
-				Computed:            false,
-				Required:            true,
-				Optional:            false,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description:   "Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value",
+				Computed:      false,
+				Required:      true,
+				Optional:      false,
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
+				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"security_group_id": schema.Int64Attribute{
-				MarkdownDescription: "Vm security_group_id configurable attribute",
-				Computed:            false,
-				Required:            false,
-				Optional:            true,
-				Validators:          []validator.Int64{emma.PositiveInt64{}},
+				Description: "Security group ID of the virtual machine, the process of changing the security group will start after changing this value",
+				Computed:    false,
+				Required:    false,
+				Optional:    true,
+				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 
 			"status": schema.StringAttribute{
-				MarkdownDescription: "Vm status configurable attribute",
-				Computed:            true,
+				Description: "Status of the virtual machine",
+				Computed:    true,
 			},
 			"disks": schema.ListNestedAttribute{
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
-							MarkdownDescription: "Vm disks id configurable attribute",
-							Computed:            true,
+							Description: "Volume ID",
+							Computed:    true,
 						},
 						"size_gb": schema.Int64Attribute{
-							MarkdownDescription: "Vm disks size_gb configurable attribute",
-							Computed:            true,
+							Description: "Volume size in gigabytes",
+							Computed:    true,
 						},
 						"type_id": schema.Int64Attribute{
-							MarkdownDescription: "Vm disks type_id configurable attribute",
-							Computed:            true,
+							Description: "ID of the volume type",
+							Computed:    true,
 						},
 						"type": schema.StringAttribute{
-							MarkdownDescription: "Vm disks type configurable attribute",
-							Computed:            true,
+							Description: "Volume type",
+							Computed:    true,
 						},
 						"is_bootable": schema.BoolAttribute{
-							MarkdownDescription: "Vm disks is_bootable configurable attribute",
-							Computed:            true,
+							Description: "Indicates whether the volume is bootable or not",
+							Computed:    true,
 						},
 					},
 				},
@@ -196,20 +213,20 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.Int64Attribute{
-							MarkdownDescription: "Vm networks id configurable attribute",
-							Computed:            true,
+							Description: "Network ID",
+							Computed:    true,
 						},
 						"ip": schema.StringAttribute{
-							MarkdownDescription: "Vm networks ip configurable attribute",
-							Computed:            true,
+							Description: "Network IP",
+							Computed:    true,
 						},
 						"network_type_id": schema.Int64Attribute{
-							MarkdownDescription: "Vm networks network_type_id configurable attribute",
-							Computed:            true,
+							Description: "ID of the network type",
+							Computed:    true,
 						},
 						"network_type": schema.StringAttribute{
-							MarkdownDescription: "Vm networks network_type configurable attribute",
-							Computed:            true,
+							Description: "Network type",
+							Computed:    true,
 						},
 					},
 				},
@@ -218,16 +235,16 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Computed: true,
 				Attributes: map[string]schema.Attribute{
 					"unit": schema.StringAttribute{
-						MarkdownDescription: "Vm cost unit configurable attribute",
-						Computed:            true,
+						Description: "Cost period",
+						Computed:    true,
 					},
 					"currency": schema.StringAttribute{
-						MarkdownDescription: "Vm cost currency configurable attribute",
-						Computed:            true,
+						Description: "Currency of cost",
+						Computed:    true,
 					},
 					"price": schema.Float64Attribute{
-						MarkdownDescription: "Vm cost price configurable attribute",
-						Computed:            true,
+						Description: "Cost of the virtual machine for the period",
+						Computed:    true,
 					},
 				},
 			},
@@ -277,7 +294,7 @@ func (r *vmResource) Create(ctx context.Context, req resource.CreateRequest, res
 		return
 	}
 
-	ConvertVmResponseToResource(ctx, &data, vm, resp.Diagnostics)
+	ConvertVmResponseToResource(ctx, &data, nil, vm, resp.Diagnostics)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -307,7 +324,7 @@ func (r *vmResource) Read(ctx context.Context, req resource.ReadRequest, resp *r
 		return
 	}
 
-	ConvertVmResponseToResource(ctx, &data, vm, resp.Diagnostics)
+	ConvertVmResponseToResource(ctx, &data, nil, vm, resp.Diagnostics)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -331,37 +348,13 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 	// provider client data and make a call using it.
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 
-	if !planData.Name.Equal(stateData.Name) || !planData.OsId.Equal(stateData.OsId) ||
-		!planData.DataCenterId.Equal(stateData.DataCenterId) || !planData.VolumeType.Equal(stateData.VolumeType) ||
-		!planData.CloudNetworkType.Equal(stateData.CloudNetworkType) || !planData.SshKeyId.Equal(stateData.SshKeyId) {
-
-		var vmCreateRequest emmaSdk.VmCreate
-		ConvertToVmCreateRequest(planData, &vmCreateRequest)
-		vm, response, err := r.apiClient.VirtualMachinesAPI.VmCreate(auth).VmCreate(vmCreateRequest).Execute()
-
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to create virtual machine, got error: %s",
-					tools.ExtractErrorMessage(response)))
-			return
-		}
-
-		_, response, err = r.apiClient.VirtualMachinesAPI.VmDelete(auth, tools.StringToInt32(stateData.Id.ValueString())).Execute()
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to delete virtual machine, got error: %s",
-					tools.ExtractErrorMessage(response)))
-			return
-		}
-
-		ConvertVmResponseToResource(ctx, &stateData, vm, resp.Diagnostics)
-
-	} else {
-
-		if !planData.SecurityGroupId.Equal(stateData.SecurityGroupId) {
+	if !planData.SecurityGroupId.Equal(stateData.SecurityGroupId) {
+		if planData.SecurityGroupId.IsUnknown() || planData.SecurityGroupId.IsNull() {
+			stateData.SecurityGroupId = types.Int64Null()
+		} else {
 			vmId := tools.StringToInt32(stateData.Id.ValueString())
 			securityGroupInstanceAdd := emmaSdk.SecurityGroupInstanceAdd{InstanceId: &vmId}
-			_, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
+			vm, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstanceAdd(auth,
 				int32(planData.SecurityGroupId.ValueInt64())).SecurityGroupInstanceAdd(securityGroupInstanceAdd).Execute()
 			if err != nil {
 				resp.Diagnostics.AddError("Client Error",
@@ -369,28 +362,30 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 						tools.ExtractErrorMessage(response)))
 				return
 			}
+			stateData.SecurityGroupId = planData.SecurityGroupId
+			ConvertVmResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
+		}
+	}
+
+	if !planData.RamGb.Equal(stateData.RamGb) || !planData.VCpu.Equal(stateData.VCpu) ||
+		!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VCpuType.Equal(stateData.VCpuType) {
+
+		vmActionEditHardwareRequest := emmaSdk.VmActionsRequest{}
+		vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.VCpu.ValueInt64()),
+			int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
+		vmEditHardware.VCpuType = planData.VCpuType.ValueStringPointer()
+		vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
+		vm, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth,
+			tools.StringToInt32(stateData.Id.ValueString())).VmActionsRequest(vmActionEditHardwareRequest).Execute()
+
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error",
+				fmt.Sprintf("Unable to edit hardware of the virtual machine, got error: %s",
+					tools.ExtractErrorMessage(response)))
+			return
 		}
 
-		if !planData.RamGb.Equal(stateData.RamGb) || !planData.Vcpu.Equal(stateData.Vcpu) ||
-			!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VcpuType.Equal(stateData.VcpuType) {
-
-			vmActionEditHardwareRequest := emmaSdk.VmActionsRequest{}
-			vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.Vcpu.ValueInt64()),
-				int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
-			vmEditHardware.VCpuType = planData.VcpuType.ValueStringPointer()
-			vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
-			vm, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth,
-				tools.StringToInt32(stateData.Id.ValueString())).VmActionsRequest(vmActionEditHardwareRequest).Execute()
-
-			if err != nil {
-				resp.Diagnostics.AddError("Client Error",
-					fmt.Sprintf("Unable to edit hardware of the virtual machine, got error: %s",
-						tools.ExtractErrorMessage(response)))
-				return
-			}
-
-			ConvertEditVmHardwareResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
-		}
+		ConvertEditVmHardwareResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
 	}
 
 	// Save updated data into Terraform state
@@ -437,8 +432,8 @@ func ConvertToVmCreateRequest(data vmResourceModel, vmCreate *emmaSdk.VmCreate) 
 	vmCreate.DataCenterId = data.DataCenterId.ValueString()
 	vmCreate.OsId = int32(data.OsId.ValueInt64())
 	vmCreate.CloudNetworkType = data.CloudNetworkType.ValueString()
-	vmCreate.VCpuType = data.VcpuType.ValueString()
-	vmCreate.VCpu = int32(data.Vcpu.ValueInt64())
+	vmCreate.VCpuType = data.VCpuType.ValueString()
+	vmCreate.VCpu = int32(data.VCpu.ValueInt64())
 	vmCreate.RamGb = int32(data.RamGb.ValueInt64())
 	vmCreate.VolumeType = data.VolumeType.ValueString()
 	vmCreate.VolumeGb = int32(data.VolumeGb.ValueInt64())
@@ -449,8 +444,8 @@ func ConvertToVmCreateRequest(data vmResourceModel, vmCreate *emmaSdk.VmCreate) 
 	vmCreate.SshKeyId = int32(data.SshKeyId.ValueInt64())
 }
 
-func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResourceModel, planData *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
-	data.Status = types.StringValue(*vm.Status)
+func ConvertEditVmHardwareResponseToResource(ctx context.Context, stateData *vmResourceModel, planData *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
+	stateData.Status = types.StringValue(*vm.Status)
 
 	vmResourceCost := vmResourceCostModel{
 		Price:    types.Float64Value(float64(*vm.Cost.Price)),
@@ -459,7 +454,7 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResour
 	}
 
 	costObjectValue, costDiagnostic := types.ObjectValueFrom(ctx, vmResourceCostModel{}.attrTypes(), vmResourceCost)
-	data.Cost = costObjectValue
+	stateData.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
 	var disks []vmResourceDiskModel
@@ -474,7 +469,7 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResour
 		disks = append(disks, disk)
 	}
 	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceDiskModel{}.attrTypes()}, disks)
-	data.Disks = disksListValue
+	stateData.Disks = disksListValue
 	diags.Append(disksDiagnostic...)
 
 	var networks []vmResourceNetworkModel
@@ -488,19 +483,19 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, data *vmResour
 		networks = append(networks, network)
 	}
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
-	data.Networks = networksListValue
+	stateData.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
 
-	data.Vcpu = planData.Vcpu
-	data.VcpuType = planData.VcpuType
-	data.VolumeGb = planData.VolumeGb
-	data.RamGb = planData.RamGb
+	stateData.VCpu = planData.VCpu
+	stateData.VCpuType = planData.VCpuType
+	stateData.VolumeGb = planData.VolumeGb
+	stateData.RamGb = planData.RamGb
 }
 
-func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
-	data.Id = types.StringValue(strconv.Itoa(int(*vm.Id)))
-	data.Status = types.StringValue(*vm.Status)
-	data.Name = types.StringValue(*vm.Name)
+func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel, planData *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
+	stateData.Id = types.StringValue(strconv.Itoa(int(*vm.Id)))
+	stateData.Status = types.StringValue(*vm.Status)
+	stateData.Name = types.StringValue(*vm.Name)
 
 	vmResourceCost := vmResourceCostModel{
 		Price:    types.Float64Value(float64(*vm.Cost.Price)),
@@ -509,14 +504,14 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 	}
 
 	costObjectValue, costDiagnostic := types.ObjectValueFrom(ctx, vmResourceCostModel{}.attrTypes(), vmResourceCost)
-	data.Cost = costObjectValue
+	stateData.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
 	var disks []vmResourceDiskModel
 	for _, responseDisk := range vm.Disks {
 		if *responseDisk.IsBootable {
-			data.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
-			data.VolumeType = types.StringValue(*responseDisk.Type)
+			stateData.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
+			stateData.VolumeType = types.StringValue(*responseDisk.Type)
 		}
 		disk := vmResourceDiskModel{
 			Id:         types.Int64Value(int64(*responseDisk.Id)),
@@ -528,7 +523,7 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 		disks = append(disks, disk)
 	}
 	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceDiskModel{}.attrTypes()}, disks)
-	data.Disks = disksListValue
+	stateData.Disks = disksListValue
 	diags.Append(disksDiagnostic...)
 
 	var networks []vmResourceNetworkModel
@@ -542,21 +537,22 @@ func ConvertVmResponseToResource(ctx context.Context, data *vmResourceModel, vm 
 		networks = append(networks, network)
 	}
 	networksListValue, networksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceNetworkModel{}.attrTypes()}, networks)
-	data.Networks = networksListValue
+	stateData.Networks = networksListValue
 	diags.Append(networksDiagnostic...)
-	data.Vcpu = types.Int64Value(int64(*vm.VCpu))
-	data.VcpuType = types.StringValue(*vm.VCpuType)
+	stateData.VCpu = types.Int64Value(int64(*vm.VCpu))
+	stateData.VCpuType = types.StringValue(*vm.VCpuType)
 	if vm.CloudNetworkType != nil {
-		data.CloudNetworkType = types.StringValue(*vm.CloudNetworkType)
+		stateData.CloudNetworkType = types.StringValue(*vm.CloudNetworkType)
 	}
-	if vm.SecurityGroup != nil {
-		data.SecurityGroupId = types.Int64Value(int64(*vm.SecurityGroup.Id))
+	if (planData != nil && !planData.SecurityGroupId.IsUnknown() && !planData.SecurityGroupId.IsNull()) ||
+		(!stateData.SecurityGroupId.IsUnknown() && !stateData.SecurityGroupId.IsNull()) {
+		stateData.SecurityGroupId = types.Int64Value(int64(*vm.SecurityGroup.Id))
 	}
-	data.RamGb = types.Int64Value(int64(*vm.RamGb))
-	data.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
-	data.OsId = types.Int64Value(int64(*vm.Os.Id))
+	stateData.RamGb = types.Int64Value(int64(*vm.RamGb))
+	stateData.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
+	stateData.OsId = types.Int64Value(int64(*vm.Os.Id))
 	if vm.DataCenter != nil {
-		data.DataCenterId = types.StringValue(*vm.DataCenter.Id)
+		stateData.DataCenterId = types.StringValue(*vm.DataCenter.Id)
 	}
 }
 

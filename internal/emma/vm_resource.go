@@ -120,7 +120,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
-				Description:   "Cloud network type, available values: multi-cloud, isolated, or default, virtual machine will be recreated after changing this value",
+				Description:   "Cloud network type, available values: multi-cloud, isolated or default, virtual machine will be recreated after changing this value",
 				Computed:      false,
 				Required:      true,
 				Optional:      false,

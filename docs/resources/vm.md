@@ -55,7 +55,7 @@ resource "emma_vm" "vm" {
 
 ### Required
 
-- `cloud_network_type` (String) Cloud network type, available values: multi-cloud, isolated, or default, virtual machine will be recreated after changing this value
+- `cloud_network_type` (String) Cloud network type, available values: multi-cloud, isolated or default, virtual machine will be recreated after changing this value
 - `data_center_id` (String) Data center ID of the virtual machine, virtual machine will be recreated after changing this value
 - `name` (String) Name of the virtual machine, virtual machine will be recreated after changing this value
 - `os_id` (Number) Operating system ID of the virtual machine, virtual machine will be recreated after changing this value

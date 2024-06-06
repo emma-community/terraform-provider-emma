@@ -25,7 +25,7 @@ Then, run `terraform init`:
      required_providers {
        emma = {
          source = "emma-community/emma"
-         version = "0.0.1-alpha"
+         version = "0.0.1"
          }
       }
    }

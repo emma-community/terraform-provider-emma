@@ -91,7 +91,7 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 			"2. Select an available hardware configuration for the spot instance.\n\n" +
 			"3. Select or create an SSH key for the spot instance using the `emma_ssh_key` resource.\n\n" +
 			"4. Select an operating system using the `emma_operating_system` data source.\n\n" +
-			"5. Choose one of the cloud network types: _multi-cloud, isolated,_ or _default_. Choose the _multi-cloud_ " +
+			"5. Choose one of the cloud network types: multi-cloud, isolated or default. Choose the multi-cloud " +
 			"network type if you need to connect compute instances from different providers.\n\n" +
 			"6. Select or create an security group for the spot instance using the `emma_security_group` resource. " +
 			"You may choose not to specify a security group. In this case, the spot instance will be added to the default security group.\n\n" +
@@ -130,7 +130,7 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"cloud_network_type": schema.StringAttribute{
-				Description:   "Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, spot instance will be recreated after changing this value",
+				Description:   "Cloud network type, available values: multi-cloud, isolated or default, spot instance will be recreated after changing this value",
 				Computed:      false,
 				Required:      true,
 				Optional:      false,
@@ -138,7 +138,7 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				Validators:    []validator.String{emma.CloudNetworkType{}},
 			},
 			"vcpu_type": schema.StringAttribute{
-				Description:   "Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, spot instance will be recreated after changing this value",
+				Description:   "Type of virtual Central Processing Units (vCPUs), available values: shared, standard or hpc, spot instance will be recreated after changing this value",
 				Computed:      false,
 				Required:      true,
 				Optional:      false,
@@ -161,7 +161,7 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				Validators:    []validator.Int64{emma.PositiveInt64{}},
 			},
 			"volume_type": schema.StringAttribute{
-				Description:   "Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, spot instance will be recreated after changing this value",
+				Description:   "Volume type of the compute instance, available values: ssd or ssd-plus, spot instance will be recreated after changing this value",
 				Required:      true,
 				Optional:      false,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},

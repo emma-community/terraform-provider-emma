@@ -11,7 +11,7 @@ description: |-
   Select an available hardware configuration for the spot instance.
   Select or create an SSH key for the spot instance using the emma_ssh_key resource.
   Select an operating system using the emma_operating_system data source.
-  Choose one of the cloud network types: multi-cloud, isolated, or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
+  Choose one of the cloud network types: multi-cloud, isolated or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
   Select or create an security group for the spot instance using the emma_security_group resource. You may choose not to specify a security group. In this case, the spot instance will be added to the default security group.
   A price field of a spot instance is not required.
   The spot instance market operates on a bidding system. Your specified price acts as your bid in this market. If your bid is higher than the current spot price, your instance request will likely be fulfilled. However, if the market price exceeds your bid, your instance may not be launched or could be terminated if already running.
@@ -33,7 +33,7 @@ To create a spot instance, follow these steps:
 
 4. Select an operating system using the `emma_operating_system` data source.
 
-5. Choose one of the cloud network types: _multi-cloud, isolated,_ or _default_. Choose the _multi-cloud_ network type if you need to connect compute instances from different providers.
+5. Choose one of the cloud network types: multi-cloud, isolated or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
 
 6. Select or create an security group for the spot instance using the `emma_security_group` resource. You may choose not to specify a security group. In this case, the spot instance will be added to the default security group.
 
@@ -65,7 +65,7 @@ resource "emma_spot_instance" "spot_instance" {
 
 ### Required
 
-- `cloud_network_type` (String) Cloud network type, available values: _multi-cloud_, _isolated,_ or _default_, spot instance will be recreated after changing this value
+- `cloud_network_type` (String) Cloud network type, available values: multi-cloud, isolated or default, spot instance will be recreated after changing this value
 - `data_center_id` (String) Data center ID of the spot instance, spot instance will be recreated after changing this value
 - `name` (String) Name of the spot instance, spot instance will be recreated after changing this value
 - `os_id` (Number) Operating system ID of the spot instance, spot instance will be recreated after changing this value
@@ -73,9 +73,9 @@ resource "emma_spot_instance" "spot_instance" {
 - `ram_gb` (Number) Capacity of the RAM in gigabytes, spot instance will be recreated after changing this value
 - `ssh_key_id` (Number) Ssh key ID of the spot instance, spot instance will be recreated after changing this value
 - `vcpu` (Number) Number of virtual Central Processing Units (vCPUs), spot instance will be recreated after changing this value
-- `vcpu_type` (String) Type of virtual Central Processing Units (vCPUs), available values: _shared_, _standard_ or _hpc_, spot instance will be recreated after changing this value
+- `vcpu_type` (String) Type of virtual Central Processing Units (vCPUs), available values: shared, standard or hpc, spot instance will be recreated after changing this value
 - `volume_gb` (Number) Volume size in gigabytes, spot instance will be recreated after changing this value
-- `volume_type` (String) Volume type of the compute instance, available values: _ssd_ or _ssd-plus_, spot instance will be recreated after changing this value
+- `volume_type` (String) Volume type of the compute instance, available values: ssd or ssd-plus, spot instance will be recreated after changing this value
 
 ### Optional
 

@@ -10,7 +10,7 @@ description: |-
   Select an available hardware configuration for the virtual machine.
   Select or create an SSH key for the virtual machine using the emma_ssh_key resource.
   Select an operating system using the emma_operating_system data source.
-  Choose one of the cloud network types: multi-cloud, isolated, or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
+  Choose one of the cloud network types: multi-cloud, isolated or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
   Select or create an security group for the virtual machine using the emma_security_group resource. You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.
 ---
 
@@ -28,7 +28,7 @@ To create a virtual machine, follow these steps:
 
 4. Select an operating system using the `emma_operating_system` data source.
 
-5. Choose one of the cloud network types: multi-cloud, isolated, or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
+5. Choose one of the cloud network types: multi-cloud, isolated or default. Choose the multi-cloud network type if you need to connect compute instances from different providers.
 
 6. Select or create an security group for the virtual machine using the `emma_security_group` resource. You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.
 

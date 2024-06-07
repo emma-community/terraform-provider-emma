@@ -361,7 +361,6 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 						tools.ExtractErrorMessage(response)))
 				return
 			}
-			stateData.SecurityGroupId = planData.SecurityGroupId
 			ConvertVmResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
 		}
 	}
@@ -540,13 +539,17 @@ func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel
 	diags.Append(networksDiagnostic...)
 	stateData.VCpu = types.Int64Value(int64(*vm.VCpu))
 	stateData.VCpuType = types.StringValue(*vm.VCpuType)
+
 	if vm.CloudNetworkType != nil {
 		stateData.CloudNetworkType = types.StringValue(*vm.CloudNetworkType)
 	}
-	if (planData != nil && !planData.SecurityGroupId.IsUnknown() && !planData.SecurityGroupId.IsNull()) ||
-		(!stateData.SecurityGroupId.IsUnknown() && !stateData.SecurityGroupId.IsNull()) {
+
+	if planData != nil && !planData.SecurityGroupId.IsUnknown() && !planData.SecurityGroupId.IsNull() {
+		stateData.SecurityGroupId = planData.SecurityGroupId
+	} else if !stateData.SecurityGroupId.IsUnknown() && !stateData.SecurityGroupId.IsNull() {
 		stateData.SecurityGroupId = types.Int64Value(int64(*vm.SecurityGroup.Id))
 	}
+
 	stateData.RamGb = types.Int64Value(int64(*vm.RamGb))
 	stateData.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
 	stateData.OsId = types.Int64Value(int64(*vm.Os.Id))

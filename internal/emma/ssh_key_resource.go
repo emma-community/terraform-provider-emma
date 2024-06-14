@@ -175,7 +175,7 @@ func (r *sshKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	ConvertSshKeyResponseToResource(&data, sshKey)
+	ConvertSshKeyResponseToResource(&data, nil, sshKey)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -217,7 +217,7 @@ func (r *sshKeyResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	ConvertSshKeyResponseToResource(&stateData, sshKey)
+	ConvertSshKeyResponseToResource(&stateData, &planData, sshKey)
 
 	// Save planData into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
@@ -282,7 +282,7 @@ func ConvertToSshKeyUpdateRequest(data sshKeyResourceModel, sshKeyUpdate *emmaSd
 
 func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKeysCreateImport201Response) {
 	if sshKeyResponse.SshKey != nil {
-		ConvertSshKeyResponseToResource(data, sshKeyResponse.SshKey)
+		ConvertSshKeyResponseToResource(data, nil, sshKeyResponse.SshKey)
 	} else if sshKeyResponse.SshKeyGenerated != nil {
 		data.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.SshKeyGenerated.Id)))
 		data.Name = types.StringValue(*sshKeyResponse.SshKeyGenerated.Name)
@@ -299,13 +299,15 @@ func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyRespons
 	}
 }
 
-func ConvertSshKeyResponseToResource(data *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKey) {
-	data.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.Id)))
-	data.Name = types.StringValue(*sshKeyResponse.Name)
-	data.Key = types.StringValue(*sshKeyResponse.Key)
-	data.Fingerprint = types.StringValue(*sshKeyResponse.Fingerprint)
-	data.KeyType = types.StringValue(*sshKeyResponse.KeyType)
-	if data.PrivateKey.IsNull() || data.PrivateKey.IsUnknown() {
-		data.PrivateKey = types.StringValue("")
+func ConvertSshKeyResponseToResource(stateData *sshKeyResourceModel, planData *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKey) {
+	stateData.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.Id)))
+	stateData.Name = types.StringValue(*sshKeyResponse.Name)
+	if !planData.Key.IsUnknown() && !planData.Key.IsNull() {
+		stateData.Key = types.StringValue(*sshKeyResponse.Key)
+	}
+	stateData.Fingerprint = types.StringValue(*sshKeyResponse.Fingerprint)
+	stateData.KeyType = types.StringValue(*sshKeyResponse.KeyType)
+	if stateData.PrivateKey.IsNull() || stateData.PrivateKey.IsUnknown() {
+		stateData.PrivateKey = types.StringValue("")
 	}
 }

@@ -302,7 +302,7 @@ func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyRespons
 func ConvertSshKeyResponseToResource(stateData *sshKeyResourceModel, planData *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKey) {
 	stateData.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.Id)))
 	stateData.Name = types.StringValue(*sshKeyResponse.Name)
-	if !planData.Key.IsUnknown() && !planData.Key.IsNull() {
+	if planData == nil || (!planData.Key.IsUnknown() && !planData.Key.IsNull()) {
 		stateData.Key = types.StringValue(*sshKeyResponse.Key)
 	}
 	stateData.Fingerprint = types.StringValue(*sshKeyResponse.Fingerprint)

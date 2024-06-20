@@ -117,10 +117,10 @@ func (r *sshKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	if !data.Key.IsUnknown() && !data.KeyType.IsUnknown() {
+	if (!data.Key.IsUnknown() || !data.Key.IsNull()) && (!data.KeyType.IsUnknown() || !data.KeyType.IsNull()) {
 		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to create ssh key: contradicting fields: key_type, key"))
-	} else if data.Key.IsUnknown() && data.KeyType.IsUnknown() {
+	} else if (data.Key.IsUnknown() || data.Key.IsNull()) && (data.KeyType.IsUnknown() || data.KeyType.IsNull()) {
 		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to create ssh key: key or key_type is required"))
 	}

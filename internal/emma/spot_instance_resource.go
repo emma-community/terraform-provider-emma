@@ -383,7 +383,6 @@ func (r *spotInstanceResource) Update(ctx context.Context, req resource.UpdateRe
 						tools.ExtractErrorMessage(response)))
 				return
 			}
-			stateData.SecurityGroupId = planData.SecurityGroupId
 			ConvertSpotInstanceResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
 		}
 	}
@@ -501,8 +500,9 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, stateData *spotI
 	if spotInstance.CloudNetworkType != nil {
 		stateData.CloudNetworkType = types.StringValue(*spotInstance.CloudNetworkType)
 	}
-	if (planData != nil && !planData.SecurityGroupId.IsUnknown() && !planData.SecurityGroupId.IsNull()) ||
-		(!stateData.SecurityGroupId.IsUnknown() && !stateData.SecurityGroupId.IsNull()) {
+	if planData != nil && !planData.SecurityGroupId.IsUnknown() && !planData.SecurityGroupId.IsNull() {
+		stateData.SecurityGroupId = planData.SecurityGroupId
+	} else if !stateData.SecurityGroupId.IsUnknown() && !stateData.SecurityGroupId.IsNull() {
 		stateData.SecurityGroupId = types.Int64Value(int64(*spotInstance.SecurityGroup.Id))
 	}
 	stateData.RamGb = types.Int64Value(int64(*spotInstance.RamGb))

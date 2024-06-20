@@ -282,11 +282,13 @@ func ConvertToSshKeyUpdateRequest(data sshKeyResourceModel, sshKeyUpdate *emmaSd
 
 func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKeysCreateImport201Response) {
 	if sshKeyResponse.SshKey != nil {
-		ConvertSshKeyResponseToResource(data, nil, sshKeyResponse.SshKey)
+		ConvertSshKeyResponseToResource(data, data, sshKeyResponse.SshKey)
 	} else if sshKeyResponse.SshKeyGenerated != nil {
 		data.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.SshKeyGenerated.Id)))
 		data.Name = types.StringValue(*sshKeyResponse.SshKeyGenerated.Name)
-		data.Key = types.StringValue(*sshKeyResponse.SshKeyGenerated.Key)
+		if !data.Key.IsUnknown() && !data.Key.IsNull() {
+			data.Key = types.StringValue(*sshKeyResponse.SshKeyGenerated.Key)
+		}
 		data.Fingerprint = types.StringValue(*sshKeyResponse.SshKeyGenerated.Fingerprint)
 		data.KeyType = types.StringValue(*sshKeyResponse.SshKeyGenerated.KeyType)
 		if sshKeyResponse.SshKeyGenerated.PrivateKey != nil {
@@ -302,7 +304,8 @@ func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyRespons
 func ConvertSshKeyResponseToResource(stateData *sshKeyResourceModel, planData *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKey) {
 	stateData.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.Id)))
 	stateData.Name = types.StringValue(*sshKeyResponse.Name)
-	if planData == nil || (!planData.Key.IsUnknown() && !planData.Key.IsNull()) {
+	if (planData != nil && !planData.Key.IsUnknown() && !planData.Key.IsNull()) ||
+		(!stateData.Key.IsUnknown() && !stateData.Key.IsNull()) {
 		stateData.Key = types.StringValue(*sshKeyResponse.Key)
 	}
 	stateData.Fingerprint = types.StringValue(*sshKeyResponse.Fingerprint)

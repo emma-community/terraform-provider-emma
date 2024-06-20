@@ -117,7 +117,7 @@ func (r *sshKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
-	if (!data.Key.IsUnknown() || !data.Key.IsNull()) && (!data.KeyType.IsUnknown() || !data.KeyType.IsNull()) {
+	if (!data.Key.IsUnknown() && !data.Key.IsNull()) && (!data.KeyType.IsUnknown() && !data.KeyType.IsNull()) {
 		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to create ssh key: contradicting fields: key_type, key"))
 	} else if (data.Key.IsUnknown() || data.Key.IsNull()) && (data.KeyType.IsUnknown() || data.KeyType.IsNull()) {
@@ -189,10 +189,10 @@ func (r *sshKeyResource) Update(ctx context.Context, req resource.UpdateRequest,
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
-	if !planData.Key.IsUnknown() && !planData.KeyType.IsUnknown() {
+	if (!planData.Key.IsUnknown() && !planData.Key.IsNull()) && (!planData.KeyType.IsUnknown() && !planData.KeyType.IsNull()) {
 		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to update ssh key: contradicting fields: key_type, key"))
-	} else if planData.Key.IsUnknown() && planData.KeyType.IsUnknown() {
+	} else if (planData.Key.IsUnknown() || planData.Key.IsNull()) && (planData.KeyType.IsUnknown() || planData.KeyType.IsNull()) {
 		resp.Diagnostics.AddError("Validation Error",
 			fmt.Sprintf("Unable to update ssh key: key or key_type is required"))
 	}
@@ -282,7 +282,7 @@ func ConvertToSshKeyUpdateRequest(data sshKeyResourceModel, sshKeyUpdate *emmaSd
 
 func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKeysCreateImport201Response) {
 	if sshKeyResponse.SshKey != nil {
-		ConvertSshKeyResponseToResource(data, data, sshKeyResponse.SshKey)
+		ConvertSshKeyResponseToResource(data, nil, sshKeyResponse.SshKey)
 	} else if sshKeyResponse.SshKeyGenerated != nil {
 		data.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.SshKeyGenerated.Id)))
 		data.Name = types.StringValue(*sshKeyResponse.SshKeyGenerated.Name)

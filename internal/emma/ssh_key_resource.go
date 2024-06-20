@@ -136,6 +136,7 @@ func (r *sshKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 	var sshKeyCreateImportRequest emmaSdk.SshKeysCreateImportRequest
 	ConvertToSshKeyCreateImportRequest(data, &sshKeyCreateImportRequest)
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
+
 	sshKey, response, err := r.apiClient.SSHKeysAPI.SshKeysCreateImport(auth).SshKeysCreateImportRequest(sshKeyCreateImportRequest).Execute()
 
 	if err != nil {
@@ -263,12 +264,12 @@ func (r *sshKeyResource) ImportState(ctx context.Context, req resource.ImportSta
 }
 
 func ConvertToSshKeyCreateImportRequest(data sshKeyResourceModel, sshKeyCreate *emmaSdk.SshKeysCreateImportRequest) {
-	if !data.KeyType.IsUnknown() {
+	if !data.KeyType.IsNull() {
 		sshKeyCreateRequest := emmaSdk.SshKeyCreate{}
 		sshKeyCreateRequest.Name = data.Name.ValueString()
 		sshKeyCreateRequest.KeyType = data.KeyType.ValueString()
 		sshKeyCreate.SshKeyCreate = &sshKeyCreateRequest
-	} else if !data.Key.IsUnknown() {
+	} else if !data.Key.IsNull() {
 		sshKeyImportRequest := emmaSdk.SshKeyImport{}
 		sshKeyImportRequest.Name = data.Name.ValueString()
 		sshKeyImportRequest.Key = data.Key.ValueString()
@@ -291,8 +292,12 @@ func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyRespons
 		} else {
 			data.Key = types.StringNull()
 		}
+		if !data.KeyType.IsUnknown() && !data.KeyType.IsNull() {
+			data.KeyType = types.StringValue(*sshKeyResponse.SshKeyGenerated.KeyType)
+		} else {
+			data.KeyType = types.StringNull()
+		}
 		data.Fingerprint = types.StringValue(*sshKeyResponse.SshKeyGenerated.Fingerprint)
-		data.KeyType = types.StringValue(*sshKeyResponse.SshKeyGenerated.KeyType)
 		if sshKeyResponse.SshKeyGenerated.PrivateKey != nil {
 			data.PrivateKey = types.StringValue(*sshKeyResponse.SshKeyGenerated.PrivateKey)
 		} else if !data.PrivateKey.IsUnknown() && !data.PrivateKey.IsNull() {
@@ -312,8 +317,13 @@ func ConvertSshKeyResponseToResource(stateData *sshKeyResourceModel, planData *s
 	} else {
 		stateData.Key = types.StringNull()
 	}
+	if (planData != nil && !planData.KeyType.IsUnknown() && !planData.KeyType.IsNull()) ||
+		(!stateData.KeyType.IsUnknown() && !stateData.KeyType.IsNull()) {
+		stateData.KeyType = types.StringValue(*sshKeyResponse.KeyType)
+	} else {
+		stateData.KeyType = types.StringNull()
+	}
 	stateData.Fingerprint = types.StringValue(*sshKeyResponse.Fingerprint)
-	stateData.KeyType = types.StringValue(*sshKeyResponse.KeyType)
 	if stateData.PrivateKey.IsNull() || stateData.PrivateKey.IsUnknown() {
 		stateData.PrivateKey = types.StringValue("")
 	}

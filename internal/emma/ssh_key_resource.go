@@ -288,6 +288,8 @@ func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyRespons
 		data.Name = types.StringValue(*sshKeyResponse.SshKeyGenerated.Name)
 		if !data.Key.IsUnknown() && !data.Key.IsNull() {
 			data.Key = types.StringValue(*sshKeyResponse.SshKeyGenerated.Key)
+		} else {
+			data.Key = types.StringNull()
 		}
 		data.Fingerprint = types.StringValue(*sshKeyResponse.SshKeyGenerated.Fingerprint)
 		data.KeyType = types.StringValue(*sshKeyResponse.SshKeyGenerated.KeyType)
@@ -307,6 +309,8 @@ func ConvertSshKeyResponseToResource(stateData *sshKeyResourceModel, planData *s
 	if (planData != nil && !planData.Key.IsUnknown() && !planData.Key.IsNull()) ||
 		(!stateData.Key.IsUnknown() && !stateData.Key.IsNull()) {
 		stateData.Key = types.StringValue(*sshKeyResponse.Key)
+	} else {
+		stateData.Key = types.StringNull()
 	}
 	stateData.Fingerprint = types.StringValue(*sshKeyResponse.Fingerprint)
 	stateData.KeyType = types.StringValue(*sshKeyResponse.KeyType)

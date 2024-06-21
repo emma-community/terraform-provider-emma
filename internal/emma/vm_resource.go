@@ -92,8 +92,9 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 			"You may choose not to specify a security group. In this case, the virtual machine will be added to the default security group.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "ID of the virtual machine",
-				Computed:    true,
+				Description:   "ID of the virtual machine",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
 				Description:   "Name of the virtual machine, virtual machine will be recreated after changing this value",

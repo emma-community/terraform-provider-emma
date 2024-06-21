@@ -102,8 +102,9 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "ID of the spot instance",
-				Computed:    true,
+				Description:   "ID of the spot instance",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
 				Description:   "Name of the spot instance, spot instance will be recreated after changing this value",

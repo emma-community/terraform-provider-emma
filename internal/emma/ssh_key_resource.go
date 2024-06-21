@@ -57,8 +57,9 @@ func (r *sshKeyResource) Schema(ctx context.Context, req resource.SchemaRequest,
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "ID of the SSH key",
-				Computed:    true,
+				Description:   "ID of the SSH key",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
 				Description: "SSH key name",
@@ -287,9 +288,7 @@ func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyRespons
 	} else if sshKeyResponse.SshKeyGenerated != nil {
 		data.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.SshKeyGenerated.Id)))
 		data.Name = types.StringValue(*sshKeyResponse.SshKeyGenerated.Name)
-		if !data.Key.IsUnknown() && !data.Key.IsNull() {
-			data.Key = types.StringValue(*sshKeyResponse.SshKeyGenerated.Key)
-		} else {
+		if data.Key.IsUnknown() && data.Key.IsNull() {
 			data.Key = types.StringNull()
 		}
 		if !data.KeyType.IsUnknown() && !data.KeyType.IsNull() {
@@ -311,10 +310,9 @@ func ConvertSshKey201ResponseToResource(data *sshKeyResourceModel, sshKeyRespons
 func ConvertSshKeyResponseToResource(stateData *sshKeyResourceModel, planData *sshKeyResourceModel, sshKeyResponse *emmaSdk.SshKey) {
 	stateData.Id = types.StringValue(strconv.Itoa(int(*sshKeyResponse.Id)))
 	stateData.Name = types.StringValue(*sshKeyResponse.Name)
-	if (planData != nil && !planData.Key.IsUnknown() && !planData.Key.IsNull()) ||
-		(!stateData.Key.IsUnknown() && !stateData.Key.IsNull()) {
-		stateData.Key = types.StringValue(*sshKeyResponse.Key)
-	} else {
+	if planData != nil && !planData.Key.IsUnknown() && !planData.Key.IsNull() {
+		stateData.Key = planData.Key
+	} else if stateData.Key.IsUnknown() && stateData.Key.IsNull() {
 		stateData.Key = types.StringNull()
 	}
 	if (planData != nil && !planData.KeyType.IsUnknown() && !planData.KeyType.IsNull()) ||

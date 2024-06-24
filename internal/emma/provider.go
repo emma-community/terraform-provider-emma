@@ -19,7 +19,6 @@ var (
 	_ provider.Provider = &Provider{}
 )
 
-// New is a helper function to simplify provider server and testing implementation.
 func New() func() provider.Provider {
 	return func() provider.Provider {
 		return &Provider{}
@@ -200,6 +199,9 @@ func (p *Provider) DataSources(_ context.Context) []func() datasource.DataSource
 func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewVmResource,
+		NewSshKeyResource,
+		NewSecurityGroupResource,
+		NewSpotInstanceResource,
 	}
 }
 

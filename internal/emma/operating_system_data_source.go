@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces.
 var _ datasource.DataSource = &operatingSystemDataSource{}
 
 func NewOperatingSystemDataSource() datasource.DataSource {

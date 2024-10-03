@@ -80,7 +80,7 @@ resource "emma_vm" "vm" {
   volume_type        = "ssd"
   volume_gb          = 8
   security_group_id  = emma_security_group.security_group.id
-  ssh_key_id =           emma_ssh_key.ssh_key.id
+  ssh_key_id         = emma_ssh_key.ssh_key.id
 }
 
 # resource "emma_vm" "vm_import" {

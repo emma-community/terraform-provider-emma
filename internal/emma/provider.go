@@ -202,6 +202,7 @@ func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 		NewSshKeyResource,
 		NewSecurityGroupResource,
 		NewSpotInstanceResource,
+		NewKubernetesResource,
 	}
 }
 

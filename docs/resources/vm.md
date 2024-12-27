@@ -60,7 +60,6 @@ resource "emma_vm" "vm" {
 - `name` (String) Name of the virtual machine, virtual machine will be recreated after changing this value
 - `os_id` (Number) Operating system ID of the virtual machine, virtual machine will be recreated after changing this value
 - `ram_gb` (Number) Capacity of the RAM in gigabytes, the process of edit hardware will start after changing this value
-- `ssh_key_id` (Number) Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value
 - `vcpu` (Number) Number of virtual Central Processing Units (vCPUs), the process of edit hardware will start after changing this value
 - `vcpu_type` (String) Type of virtual Central Processing Units (vCPUs), available values: shared, standard or hpc, virtual machine will be recreated after changing this value
 - `volume_gb` (Number) Volume size in gigabytes, the process of edit hardware will start after changing this value
@@ -69,6 +68,8 @@ resource "emma_vm" "vm" {
 ### Optional
 
 - `security_group_id` (Number) Security group ID of the virtual machine, the process of changing the security group will start after changing this value
+- `ssh_key_id` (Number) Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value
+- `user_password` (String) User password of the virtual machine, virtual machine will be recreated after changing this value
 
 ### Read-Only
 

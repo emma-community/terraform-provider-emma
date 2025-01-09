@@ -47,6 +47,7 @@ type spotInstanceResourceModel struct {
 	VolumeGb         types.Int64   `tfsdk:"volume_gb"`
 	SecurityGroupId  types.Int64   `tfsdk:"security_group_id"`
 	SshKeyId         types.Int64   `tfsdk:"ssh_key_id"`
+	UserPassword     types.String  `tfsdk:"user_password"`
 	Price            types.Float64 `tfsdk:"price"`
 	Status           types.String  `tfsdk:"status"`
 	Disks            types.List    `tfsdk:"disks"`
@@ -177,11 +178,15 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 			},
 			"ssh_key_id": schema.Int64Attribute{
 				Description:   "Ssh key ID of the spot instance, spot instance will be recreated after changing this value",
-				Computed:      false,
-				Required:      true,
-				Optional:      false,
+				Optional:      true,
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
 				Validators:    []validator.Int64{emma.PositiveInt64{}},
+			},
+			"user_password": schema.StringAttribute{
+				Description:   "User password of the spot instance, spot instance will be recreated after changing this value",
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.UserPassword{}},
 			},
 			"security_group_id": schema.Int64Attribute{
 				Description: "Security group ID of the spot instance, the process of changing the security group will start after changing this value",
@@ -437,12 +442,18 @@ func ConvertToSpotInstanceCreateRequest(data spotInstanceResourceModel, spotInst
 	spotInstanceCreate.RamGb = int32(data.RamGb.ValueInt64())
 	spotInstanceCreate.VolumeType = data.VolumeType.ValueString()
 	spotInstanceCreate.VolumeGb = int32(data.VolumeGb.ValueInt64())
+	spotInstanceCreate.Price = float32(data.Price.ValueFloat64())
+
 	if !data.SecurityGroupId.IsUnknown() && !data.SecurityGroupId.IsNull() {
 		securityGroupId := int32(data.SecurityGroupId.ValueInt64())
 		spotInstanceCreate.SecurityGroupId = &securityGroupId
 	}
-	spotInstanceCreate.SshKeyId = int32(data.SshKeyId.ValueInt64())
-	spotInstanceCreate.Price = float32(data.Price.ValueFloat64())
+	if !data.UserPassword.IsUnknown() && !data.UserPassword.IsNull() {
+		spotInstanceCreate.UserPassword = tools.ToPointer(data.UserPassword.ValueString())
+	}
+	if !data.SshKeyId.IsUnknown() && !data.SshKeyId.IsNull() {
+		spotInstanceCreate.SshKeyId = tools.ToInt32PointerOrNil(data.SshKeyId)
+	}
 }
 
 func ConvertSpotInstanceResponseToResource(ctx context.Context, stateData *spotInstanceResourceModel, planData *spotInstanceResourceModel, spotInstance *emmaSdk.Vm, diags diag.Diagnostics) {
@@ -507,10 +518,16 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, stateData *spotI
 		stateData.SecurityGroupId = types.Int64Value(int64(*spotInstance.SecurityGroup.Id))
 	}
 	stateData.RamGb = types.Int64Value(int64(*spotInstance.RamGb))
-	stateData.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
 	stateData.OsId = types.Int64Value(int64(*spotInstance.Os.Id))
 	if spotInstance.DataCenter != nil {
 		stateData.DataCenterId = types.StringValue(*spotInstance.DataCenter.Id)
+	}
+
+	if spotInstance.UserPassword != nil {
+		stateData.UserPassword = types.StringValue(*spotInstance.UserPassword)
+	}
+	if spotInstance.SshKeyId != nil {
+		stateData.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
 	}
 }
 

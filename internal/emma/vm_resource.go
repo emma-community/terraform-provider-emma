@@ -45,6 +45,7 @@ type vmResourceModel struct {
 	VolumeType       types.String `tfsdk:"volume_type"`
 	VolumeGb         types.Int64  `tfsdk:"volume_gb"`
 	SshKeyId         types.Int64  `tfsdk:"ssh_key_id"`
+	UserPassword     types.String `tfsdk:"user_password"`
 	SecurityGroupId  types.Int64  `tfsdk:"security_group_id"`
 	Status           types.String `tfsdk:"status"`
 	Disks            types.List   `tfsdk:"disks"`
@@ -163,11 +164,15 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 			},
 			"ssh_key_id": schema.Int64Attribute{
 				Description:   "Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value",
-				Computed:      false,
-				Required:      true,
-				Optional:      false,
+				Optional:      true,
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()},
 				Validators:    []validator.Int64{emma.PositiveInt64{}},
+			},
+			"user_password": schema.StringAttribute{
+				Description:   "User password of the virtual machine, virtual machine will be recreated after changing this value",
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.UserPassword{}},
 			},
 			"security_group_id": schema.Int64Attribute{
 				Description: "Security group ID of the virtual machine, the process of changing the security group will start after changing this value",
@@ -436,11 +441,16 @@ func ConvertToVmCreateRequest(data vmResourceModel, vmCreate *emmaSdk.VmCreate) 
 	vmCreate.RamGb = int32(data.RamGb.ValueInt64())
 	vmCreate.VolumeType = data.VolumeType.ValueString()
 	vmCreate.VolumeGb = int32(data.VolumeGb.ValueInt64())
+
 	if !data.SecurityGroupId.IsUnknown() && !data.SecurityGroupId.IsNull() {
-		securityGroupId := int32(data.SecurityGroupId.ValueInt64())
-		vmCreate.SecurityGroupId = &securityGroupId
+		vmCreate.SecurityGroupId = tools.ToPointer(int32(data.SecurityGroupId.ValueInt64()))
 	}
-	vmCreate.SshKeyId = int32(data.SshKeyId.ValueInt64())
+	if !data.UserPassword.IsUnknown() && !data.UserPassword.IsNull() {
+		vmCreate.UserPassword = tools.ToPointer(data.UserPassword.ValueString())
+	}
+	if !data.SshKeyId.IsUnknown() && !data.SshKeyId.IsNull() {
+		vmCreate.SshKeyId = tools.ToInt32PointerOrNil(data.SshKeyId)
+	}
 }
 
 func ConvertEditVmHardwareResponseToResource(ctx context.Context, stateData *vmResourceModel, planData *vmResourceModel, vm *emmaSdk.Vm, diags diag.Diagnostics) {
@@ -552,10 +562,15 @@ func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel
 	}
 
 	stateData.RamGb = types.Int64Value(int64(*vm.RamGb))
-	stateData.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
 	stateData.OsId = types.Int64Value(int64(*vm.Os.Id))
 	if vm.DataCenter != nil {
 		stateData.DataCenterId = types.StringValue(*vm.DataCenter.Id)
+	}
+	if vm.UserPassword != nil {
+		stateData.UserPassword = types.StringValue(*vm.UserPassword)
+	}
+	if vm.SshKeyId != nil {
+		stateData.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
 	}
 }
 

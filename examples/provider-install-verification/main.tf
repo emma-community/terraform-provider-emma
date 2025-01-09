@@ -81,6 +81,7 @@ resource "emma_vm" "vm" {
   volume_gb          = 8
   security_group_id  = emma_security_group.security_group.id
   ssh_key_id         = emma_ssh_key.ssh_key.id
+  user_password      = "jsa7235!Hjk"
 }
 
 # resource "emma_vm" "vm_import" {
@@ -109,6 +110,7 @@ resource "emma_spot_instance" "spot_instance" {
   security_group_id  = emma_security_group.security_group.id
   ssh_key_id         = emma_ssh_key.ssh_key.id
   price              = 0.00305205479452
+  user_password      = "jsa7235!Hjk"
 }
 
 output "emma_data_center" {

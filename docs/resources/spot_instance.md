@@ -71,7 +71,6 @@ resource "emma_spot_instance" "spot_instance" {
 - `os_id` (Number) Operating system ID of the spot instance, spot instance will be recreated after changing this value
 - `price` (Number) Offer price of the spot instance, spot instance will be recreated after changing this value
 - `ram_gb` (Number) Capacity of the RAM in gigabytes, spot instance will be recreated after changing this value
-- `ssh_key_id` (Number) Ssh key ID of the spot instance, spot instance will be recreated after changing this value
 - `vcpu` (Number) Number of virtual Central Processing Units (vCPUs), spot instance will be recreated after changing this value
 - `vcpu_type` (String) Type of virtual Central Processing Units (vCPUs), available values: shared, standard or hpc, spot instance will be recreated after changing this value
 - `volume_gb` (Number) Volume size in gigabytes, spot instance will be recreated after changing this value
@@ -80,6 +79,8 @@ resource "emma_spot_instance" "spot_instance" {
 ### Optional
 
 - `security_group_id` (Number) Security group ID of the spot instance, the process of changing the security group will start after changing this value
+- `ssh_key_id` (Number) Ssh key ID of the spot instance, spot instance will be recreated after changing this value
+- `user_password` (String) User password of the spot instance, spot instance will be recreated after changing this value
 
 ### Read-Only
 

@@ -475,13 +475,13 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, stateData *spotI
 	stateData.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
-	var disks []vmResourceDiskModel
+	var disks []VmResourceDiskModel
 	for _, responseDisk := range spotInstance.Disks {
 		if *responseDisk.IsBootable {
 			stateData.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
 			stateData.VolumeType = types.StringValue(*responseDisk.Type)
 		}
-		disk := vmResourceDiskModel{
+		disk := VmResourceDiskModel{
 			Id:         types.Int64Value(int64(*responseDisk.Id)),
 			Type_:      types.StringValue(*responseDisk.Type),
 			TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),

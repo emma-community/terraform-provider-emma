@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"strconv"
+	"strings"
 )
 
 var _ resource.Resource = &vmResource{}
@@ -53,7 +54,7 @@ type vmResourceModel struct {
 	Cost             types.Object `tfsdk:"cost"`
 }
 
-type vmResourceDiskModel struct {
+type VmResourceDiskModel struct {
 	Id         types.Int64  `tfsdk:"id"`
 	SizeGb     types.Int64  `tfsdk:"size_gb"`
 	TypeId     types.Int64  `tfsdk:"type_id"`
@@ -335,6 +336,91 @@ func (r *vmResource) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func GetVolumesAsList(ctx context.Context, stateData *vmResourceModel, diagnostics diag.Diagnostics) []VmResourceDiskModel {
+	var disks []VmResourceDiskModel
+	diskDiagnostics := stateData.Disks.ElementsAs(ctx, &disks, false)
+	if diskDiagnostics.HasError() {
+		diagnostics.Append(diskDiagnostics...)
+		return nil
+	}
+	return disks
+}
+
+func GetBootableDisk(ctx context.Context, stateData *vmResourceModel, diagnostics diag.Diagnostics) *VmResourceDiskModel {
+	disks := GetVolumesAsList(ctx, stateData, diagnostics)
+	if disks == nil {
+		return nil
+	}
+
+	for _, disk := range disks {
+		if disk.IsBootable.ValueBool() {
+			return &disk
+		}
+	}
+
+	return nil
+}
+
+func ResizeVolume(ctx context.Context, stateData *vmResourceModel, resp *resource.UpdateResponse, r *vmResource, volumeId int32) {
+	bootableDisk := GetBootableDisk(ctx, stateData, resp.Diagnostics)
+	if bootableDisk == nil {
+		resp.Diagnostics.AddError("Validation Error", "Bootable disk not found")
+		return
+	}
+	volumeEdit := emmaSdk.VolumeActionsRequest{VolumeEdit: emmaSdk.NewVolumeEdit("edit", volumeId)}
+	volume, response, err := r.apiClient.VolumesAPI.VolumeActions(ctx, int32(bootableDisk.Id.ValueInt64())).VolumeActionsRequest(volumeEdit).Execute()
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error",
+			fmt.Sprintf("Unable to resize volume, got error: %s",
+				tools.ExtractErrorMessage(response)))
+		return
+	}
+
+	var updatedDisks []VmResourceDiskModel
+	disks := GetVolumesAsList(ctx, stateData, resp.Diagnostics)
+	if disks != nil {
+		for _, disk := range disks {
+			if disk.Id.ValueInt64() == int64(*volume.Id) {
+				updatedDisk := VmResourceDiskModel{
+					Id:         types.Int64Value(int64(*volume.Id)),
+					SizeGb:     types.Int64Value(int64(*volume.SizeGb)),
+					TypeId:     types.Int64Value(disk.TypeId.ValueInt64()),
+					Type_:      types.StringValue(*volume.Type),
+					IsBootable: types.BoolValue(*volume.IsSystem),
+				}
+				updatedDisks = append(updatedDisks, updatedDisk)
+			} else {
+				updatedDisks = append(updatedDisks, disk)
+			}
+		}
+	}
+
+	stateData.VolumeGb = types.Int64Value(int64(*volume.SizeGb))
+	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: VmResourceDiskModel{}.attrTypes()}, updatedDisks)
+	stateData.Disks = disksListValue
+	resp.Diagnostics.Append(disksDiagnostic...)
+}
+
+func EditHardware(ctx context.Context, stateData *vmResourceModel, resp *resource.UpdateResponse, r *vmResource, planData *vmResourceModel) {
+	vmActionEditHardwareRequest := emmaSdk.VmActionsRequest{}
+
+	vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.VCpu.ValueInt64()),
+		int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
+	vmEditHardware.VCpuType = planData.VCpuType.ValueStringPointer()
+	vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
+	vm, response, err := r.apiClient.VirtualMachinesAPI.VmActions(ctx,
+		tools.StringToInt32(stateData.Id.ValueString())).VmActionsRequest(vmActionEditHardwareRequest).Execute()
+
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error",
+			fmt.Sprintf("Unable to edit hardware of the virtual machine, got error: %s",
+				tools.ExtractErrorMessage(response)))
+		return
+	}
+
+	ConvertEditVmHardwareResponseToResource(ctx, stateData, planData, vm, resp.Diagnostics)
+}
+
 func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var planData vmResourceModel
 	var stateData vmResourceModel
@@ -344,6 +430,21 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// data_center_id is string like "digitalocean-sgp1", "gcp-europe-west8-a" etc...
+	isDigitalOcean := strings.HasPrefix(strings.ToLower(strings.Trim(planData.DataCenterId.String(), "\"")), "digitalocean")
+	hardwareChanged := !planData.RamGb.Equal(stateData.RamGb) || !planData.VCpu.Equal(stateData.VCpu) || !planData.VCpuType.Equal(stateData.VCpuType)
+	volumeChanged := !planData.VolumeGb.Equal(stateData.VolumeGb)
+
+	if !isDigitalOcean && volumeChanged && hardwareChanged {
+		resp.Diagnostics.AddError("Validation Error", "Can't change volume and hardware at the same time")
+		return
+	}
+
+	if planData.VolumeGb.ValueInt64() < stateData.VolumeGb.ValueInt64() {
+		resp.Diagnostics.AddError("Validation Error", "Volume size cannot be decreased")
 		return
 	}
 
@@ -371,25 +472,12 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 		}
 	}
 
-	if !planData.RamGb.Equal(stateData.RamGb) || !planData.VCpu.Equal(stateData.VCpu) ||
-		!planData.VolumeGb.Equal(stateData.VolumeGb) || !planData.VCpuType.Equal(stateData.VCpuType) {
+	if !isDigitalOcean && volumeChanged {
+		ResizeVolume(auth, &stateData, resp, r, int32(planData.VolumeGb.ValueInt64()))
+	}
 
-		vmActionEditHardwareRequest := emmaSdk.VmActionsRequest{}
-		vmEditHardware := emmaSdk.NewVmEditHardware("edithardware", int32(planData.VCpu.ValueInt64()),
-			int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
-		vmEditHardware.VCpuType = planData.VCpuType.ValueStringPointer()
-		vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
-		vm, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth,
-			tools.StringToInt32(stateData.Id.ValueString())).VmActionsRequest(vmActionEditHardwareRequest).Execute()
-
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to edit hardware of the virtual machine, got error: %s",
-					tools.ExtractErrorMessage(response)))
-			return
-		}
-
-		ConvertEditVmHardwareResponseToResource(ctx, &stateData, &planData, vm, resp.Diagnostics)
+	if hardwareChanged || (isDigitalOcean && volumeChanged) {
+		EditHardware(auth, &stateData, resp, r, &planData)
 	}
 
 	// Save updated data into Terraform state
@@ -466,9 +554,9 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, stateData *vmR
 	stateData.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
-	var disks []vmResourceDiskModel
+	var disks []VmResourceDiskModel
 	for _, responseDisk := range vm.Disks {
-		disk := vmResourceDiskModel{
+		disk := VmResourceDiskModel{
 			Id:         types.Int64Value(int64(*responseDisk.Id)),
 			Type_:      types.StringValue(*responseDisk.Type),
 			TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
@@ -477,7 +565,7 @@ func ConvertEditVmHardwareResponseToResource(ctx context.Context, stateData *vmR
 		}
 		disks = append(disks, disk)
 	}
-	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceDiskModel{}.attrTypes()}, disks)
+	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: VmResourceDiskModel{}.attrTypes()}, disks)
 	stateData.Disks = disksListValue
 	diags.Append(disksDiagnostic...)
 
@@ -516,13 +604,13 @@ func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel
 	stateData.Cost = costObjectValue
 	diags.Append(costDiagnostic...)
 
-	var disks []vmResourceDiskModel
+	var disks []VmResourceDiskModel
 	for _, responseDisk := range vm.Disks {
 		if *responseDisk.IsBootable {
 			stateData.VolumeGb = types.Int64Value(int64(*responseDisk.SizeGb))
 			stateData.VolumeType = types.StringValue(*responseDisk.Type)
 		}
-		disk := vmResourceDiskModel{
+		disk := VmResourceDiskModel{
 			Id:         types.Int64Value(int64(*responseDisk.Id)),
 			Type_:      types.StringValue(*responseDisk.Type),
 			TypeId:     types.Int64Value(int64(*responseDisk.TypeId)),
@@ -531,7 +619,7 @@ func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel
 		}
 		disks = append(disks, disk)
 	}
-	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: vmResourceDiskModel{}.attrTypes()}, disks)
+	disksListValue, disksDiagnostic := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: VmResourceDiskModel{}.attrTypes()}, disks)
 	stateData.Disks = disksListValue
 	diags.Append(disksDiagnostic...)
 
@@ -582,7 +670,7 @@ func (o vmResourceCostModel) attrTypes() map[string]attr.Type {
 	}
 }
 
-func (o vmResourceDiskModel) attrTypes() map[string]attr.Type {
+func (o VmResourceDiskModel) attrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"id":          types.Int64Type,
 		"size_gb":     types.Int64Type,

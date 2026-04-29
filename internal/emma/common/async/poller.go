@@ -3,6 +3,7 @@ package async
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -27,7 +28,8 @@ func NewPoller(config PollerConfig) *Poller {
 
 // Poll waits for operation to reach target state
 func (p *Poller) Poll(ctx context.Context) error {
-	deadline := time.Now().Add(p.config.Timeout)
+	timer := time.NewTimer(p.config.Timeout)
+	defer timer.Stop()
 	ticker := time.NewTicker(p.config.PollInterval)
 	defer ticker.Stop()
 
@@ -35,26 +37,22 @@ func (p *Poller) Poll(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-timer.C:
+			return fmt.Errorf("timeout waiting for operation to complete")
 		case <-ticker.C:
-			if time.Now().After(deadline) {
-				return fmt.Errorf("timeout waiting for operation to complete")
-			}
-
 			status, err := p.config.StatusChecker(ctx)
 			if err != nil {
 				return fmt.Errorf("error checking status: %w", err)
 			}
 
-			// Check if reached target state
 			for _, target := range p.config.TargetStates {
-				if status == target {
+				if strings.EqualFold(status, target) {
 					return nil
 				}
 			}
 
-			// Check if reached failure state
 			for _, failure := range p.config.FailureStates {
-				if status == failure {
+				if strings.EqualFold(status, failure) {
 					return fmt.Errorf("operation failed with status: %s", status)
 				}
 			}

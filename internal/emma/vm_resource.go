@@ -196,27 +196,32 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 			"accelerator_type_id": schema.StringAttribute{
 				Description:   "GPU accelerator type ID for the virtual machine",
 				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 			},
 			"accelerators": schema.Float64Attribute{
 				Description:   "Number of GPU accelerators",
 				Optional:      true,
-				PlanModifiers: []planmodifier.Float64{float64planmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.Float64{float64planmodifier.UseStateForUnknown(), float64planmodifier.RequiresReplace()},
 			},
 			"subnetwork_id": schema.StringAttribute{
 				Description:   "Subnetwork ID to place the virtual machine in",
 				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 			},
 			"private_ip": schema.StringAttribute{
 				Description:   "Private IP address within the subnetwork range",
 				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 			},
 			"ip_addressing": schema.StringAttribute{
 				Description:   "IP addressing mode, available values: ipv4 or dual-stack",
 				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 			},
 
 			"status": schema.StringAttribute{
@@ -1022,13 +1027,38 @@ func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel
 		stateData.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
 	}
 
-	// Preserve create-only fields from plan
+	// Populate accelerator fields from API response
+	if vm.Accelerator != nil {
+		if vm.Accelerator.AcceleratorTypeId != nil {
+			stateData.AcceleratorTypeId = types.StringValue(*vm.Accelerator.AcceleratorTypeId)
+		}
+		if vm.Accelerator.Accelerators != nil {
+			stateData.Accelerators = types.Float64Value(float64(*vm.Accelerator.Accelerators))
+		}
+	}
+
+	// Populate subnetwork from API response
+	if vm.Subnetwork != nil && vm.Subnetwork.Id != nil {
+		stateData.SubnetworkId = types.StringValue(*vm.Subnetwork.Id)
+	}
+
+	// Override with plan values during Create/Update (plan takes precedence)
 	if planData != nil {
-		stateData.AcceleratorTypeId = planData.AcceleratorTypeId
-		stateData.Accelerators = planData.Accelerators
-		stateData.SubnetworkId = planData.SubnetworkId
-		stateData.PrivateIp = planData.PrivateIp
-		stateData.IpAddressing = planData.IpAddressing
+		if !planData.AcceleratorTypeId.IsUnknown() {
+			stateData.AcceleratorTypeId = planData.AcceleratorTypeId
+		}
+		if !planData.Accelerators.IsUnknown() {
+			stateData.Accelerators = planData.Accelerators
+		}
+		if !planData.SubnetworkId.IsUnknown() {
+			stateData.SubnetworkId = planData.SubnetworkId
+		}
+		if !planData.PrivateIp.IsUnknown() {
+			stateData.PrivateIp = planData.PrivateIp
+		}
+		if !planData.IpAddressing.IsUnknown() {
+			stateData.IpAddressing = planData.IpAddressing
+		}
 	}
 }
 

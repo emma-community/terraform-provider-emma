@@ -2,19 +2,16 @@ package emma
 
 import (
 	"context"
-	"github.com/hashicorp/terraform-plugin-framework/path"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"os"
-	"time"
 
 	emmaSdk "github.com/emma-community/emma-go-sdk"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/emma-community/terraform-provider-emma/internal/emma/common/errors"
-	"github.com/emma-community/terraform-provider-emma/internal/emma/common/retry"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -167,27 +164,6 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 		return
 	}
 
-	// Build retry configuration from provider settings
-	retryConfig := retry.DefaultRetryConfig()
-	
-	if !config.MaxRetries.IsNull() {
-		retryConfig.MaxAttempts = int(config.MaxRetries.ValueInt64())
-	}
-	
-	if !config.RetryDelay.IsNull() {
-		retryConfig.InitialDelay = time.Duration(config.RetryDelay.ValueInt64()) * time.Second
-	}
-	
-	if !config.MaxRetryDelay.IsNull() {
-		retryConfig.MaxDelay = time.Duration(config.MaxRetryDelay.ValueInt64()) * time.Second
-	}
-	
-	// Set ShouldRetry function - default to not retrying unknown errors.
-	// Resources that need retries should use their own retry config with proper status code checks.
-	retryConfig.ShouldRetry = func(err error) bool {
-		return false
-	}
-
 	configuration := &emmaSdk.Configuration{
 		DefaultHeader: make(map[string]string),
 		UserAgent:     "OpenAPI-Generator/0.0.1/go",
@@ -212,7 +188,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 				"EMMA Client Error: "+err.Error())
 		return
 	}
-	providerClient := Client{apiClient: apiClient, token: token, retryConfig: retryConfig}
+	providerClient := Client{apiClient: apiClient, token: token}
 	tflog.Info(ctx, "Configured EMMA client")
 	// Make the EMMA client available during DataSource and Resource
 	// type Configure methods.
@@ -249,18 +225,7 @@ func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 }
 
 type Client struct {
-	apiClient   *emmaSdk.APIClient
-	token       *emmaSdk.Token
-	retryConfig retry.RetryConfig
-}
-
-// WithRetry wraps an API operation with retry logic
-func (c *Client) WithRetry(ctx context.Context, operation func() error) error {
-	return retry.Retry(ctx, c.retryConfig, operation)
-}
-
-// IsRetryableStatusCode determines if a status code should trigger a retry
-func (c *Client) IsRetryableStatusCode(statusCode int) bool {
-	return errors.IsRetryable(statusCode)
+	apiClient *emmaSdk.APIClient
+	token     *emmaSdk.Token
 }
 

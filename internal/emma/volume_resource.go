@@ -106,10 +106,8 @@ func (r *volumeResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
-				Description:   "Name of the volume",
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description: "Name of the volume (assigned by the platform)",
+				Computed:    true,
 			},
 			"data_center_id": schema.StringAttribute{
 				Description:   "Data center ID where the volume will be created, volume will be recreated after changing this value",
@@ -382,433 +380,193 @@ func (r *volumeResource) Read(ctx context.Context, req resource.ReadRequest, res
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+// waitForStableAndRetry waits for a resource to reach a stable state, then executes an API operation with retry.
+func (r *volumeResource) waitForStableAndRetry(ctx context.Context, auth context.Context, config state.StateTransitionConfig, operation func() (*http.Response, error), operationName string, volumeIdStr string) error {
+	if err := state.NewStateTransitionManager(config).WaitForStableState(auth); err != nil {
+		return fmt.Errorf("resource did not reach stable state before %s: %w", operationName, err)
+	}
+
+	retryConfig := retry.StateConflictRetryConfig()
+	var lastResponse *http.Response
+	var lastAPIError string
+
+	err := retry.Retry(auth, retryConfig, func() error {
+		response, err := operation()
+		lastResponse = response
+		if err != nil {
+			lastAPIError = tools.ExtractErrorMessage(response)
+			statusCode := 0
+			if response != nil {
+				statusCode = response.StatusCode
+			}
+			if retry.IsStateConflictError(err, statusCode, lastAPIError) {
+				return err
+			}
+			return fmt.Errorf("non-retryable error: %w", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		statusCode := 0
+		apiError := ""
+		if lastResponse != nil {
+			statusCode = lastResponse.StatusCode
+			apiError = lastAPIError
+		}
+		return errors.NewError("emma_volume", "Update").
+			WithID(volumeIdStr).
+			WithStatusCode(statusCode).
+			WithAPIError(apiError).
+			WithMessage(fmt.Sprintf("%s failed: %s", operationName, errors.MapHTTPError(statusCode, apiError))).
+			Build()
+	}
+	return nil
+}
+
+func (r *volumeResource) volumeStateConfig(auth context.Context, volumeId int32, volumeIdStr string) state.StateTransitionConfig {
+	return state.StateTransitionConfig{
+		ResourceType: "volume",
+		ResourceID:   volumeIdStr,
+		StatusChecker: func(ctx context.Context) (string, error) {
+			vol, _, err := r.apiClient.VolumesAPI.GetVolume(auth, volumeId).Execute()
+			if err != nil {
+				return "", err
+			}
+			if vol.Status == nil {
+				return "", fmt.Errorf("volume status is nil")
+			}
+			return *vol.Status, nil
+		},
+		TargetStates:       state.VolumeStableStates,
+		TransitionalStates: state.VolumeTransitionalStates,
+		FailureStates:      state.VolumeFailureStates,
+		Timeout:            async.DefaultTimeout,
+		PollInterval:       async.DefaultPollInterval,
+	}
+}
+
+func (r *volumeResource) vmStateConfig(auth context.Context, vmId int32) state.StateTransitionConfig {
+	return state.StateTransitionConfig{
+		ResourceType: "vm",
+		ResourceID:   fmt.Sprintf("%d", vmId),
+		StatusChecker: func(ctx context.Context) (string, error) {
+			vm, _, err := r.apiClient.VirtualMachinesAPI.GetVm(auth, vmId).Execute()
+			if err != nil {
+				return "", err
+			}
+			if vm.Status == nil {
+				return "", fmt.Errorf("VM status is nil")
+			}
+			return *vm.Status, nil
+		},
+		TargetStates:       state.VMStableStates,
+		TransitionalStates: state.VMTransitionalStates,
+		FailureStates:      state.VMFailureStates,
+		Timeout:            async.DefaultTimeout,
+		PollInterval:       async.DefaultPollInterval,
+	}
+}
+
 func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan volumeResourceModel
 	var stateData volumeResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// Read Terraform prior state data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Extract volume ID from state
 	volumeId, err := convert.StringToInt32(stateData.Id)
 	if err != nil {
-		resourceErr := errors.NewError("emma_volume", "Update").
-			WithID(stateData.Id.ValueString()).
-			WithMessage(fmt.Sprintf("Invalid volume ID: %v", err)).
-			Build()
-		
-		resp.Diagnostics.AddError("Validation Error", resourceErr.Error())
+		resp.Diagnostics.AddError("Validation Error",
+			errors.NewError("emma_volume", "Update").WithID(stateData.Id.ValueString()).
+				WithMessage(fmt.Sprintf("Invalid volume ID: %v", err)).Build().Error())
 		return
 	}
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
+	volumeIdStr := stateData.Id.ValueString()
 
-	// Preserve the planned attached_to_id for later comparison
 	planAttachedToId := plan.AttachedToId
 	stateAttachedToId := stateData.AttachedToId
 
-	// Handle volume resize if volume_gb changed
+	// Handle volume resize
 	if !plan.VolumeGb.Equal(stateData.VolumeGb) {
-		// Validate that size is increasing
 		if plan.VolumeGb.ValueInt64() < stateData.VolumeGb.ValueInt64() {
-			resourceErr := errors.NewError("emma_volume", "Update").
-				WithID(stateData.Id.ValueString()).
-				WithMessage(fmt.Sprintf("Volume size can only be increased. Current size: %d GB, requested size: %d GB",
-					stateData.VolumeGb.ValueInt64(), plan.VolumeGb.ValueInt64())).
-				Build()
-			
-			resp.Diagnostics.AddError("Validation Error", resourceErr.Error())
+			resp.Diagnostics.AddError("Validation Error",
+				fmt.Sprintf("Volume size can only be increased. Current: %d GB, requested: %d GB",
+					stateData.VolumeGb.ValueInt64(), plan.VolumeGb.ValueInt64()))
 			return
 		}
 
-		tflog.Debug(ctx, "Waiting for volume to reach stable state before resize", map[string]interface{}{
-			"volume_id": stateData.Id.ValueString(),
-		})
-
-		// Wait for volume to reach stable state before resize
-		stateManager := state.NewStateTransitionManager(state.StateTransitionConfig{
-			ResourceType: "volume",
-			ResourceID:   stateData.Id.ValueString(),
-			StatusChecker: func(ctx context.Context) (string, error) {
-				vol, _, err := r.apiClient.VolumesAPI.GetVolume(auth, volumeId).Execute()
-				if err != nil {
-					return "", err
-				}
-				if vol.Status == nil {
-					return "", fmt.Errorf("volume status is nil")
-				}
-				return *vol.Status, nil
-			},
-			TargetStates:       state.VolumeStableStates,
-			TransitionalStates: state.VolumeTransitionalStates,
-			FailureStates:      state.VolumeFailureStates,
-			Timeout:            async.DefaultTimeout,
-			PollInterval:       async.DefaultPollInterval,
-		})
-
-		if err := stateManager.WaitForStableState(auth); err != nil {
-			resp.Diagnostics.AddError("State Transition Error",
-				fmt.Sprintf("Volume did not reach stable state before resize: %s", err.Error()))
+		if err := r.waitForStableAndRetry(ctx, auth,
+			r.volumeStateConfig(auth, volumeId, volumeIdStr),
+			func() (*http.Response, error) {
+				volumeEdit := convertResourceToVolumeEditRequest(&plan)
+				_, response, err := r.apiClient.VolumesAPI.VolumeActions(auth, volumeId).VolumeEdit(*volumeEdit).Execute()
+				return response, err
+			}, "resize", volumeIdStr); err != nil {
+			resp.Diagnostics.AddError("Client Error", err.Error())
 			return
 		}
-
-		tflog.Info(ctx, "Volume reached stable state, proceeding with resize", map[string]interface{}{
-			"volume_id": stateData.Id.ValueString(),
-		})
-
-		// Perform resize with retry on state conflicts
-		retryConfig := retry.StateConflictRetryConfig()
-		var lastResponse *http.Response
-		var lastAPIError string
-
-		err := retry.Retry(auth, retryConfig, func() error {
-			volumeEdit := convertResourceToVolumeEditRequest(&plan)
-			_, response, err := r.apiClient.VolumesAPI.VolumeActions(auth, volumeId).VolumeEdit(*volumeEdit).Execute()
-
-			lastResponse = response
-			if err != nil {
-				lastAPIError = tools.ExtractErrorMessage(response)
-				statusCode := 0
-				if response != nil {
-					statusCode = response.StatusCode
-				}
-
-				// Check if this is a state conflict error that should be retried
-				if retry.IsStateConflictError(err, statusCode, lastAPIError) {
-					tflog.Warn(ctx, "Volume resize failed due to state conflict, will retry", map[string]interface{}{
-						"volume_id":   stateData.Id.ValueString(),
-						"status_code": statusCode,
-						"error":       lastAPIError,
-					})
-					return err
-				}
-
-				// Non-retryable error
-				return fmt.Errorf("non-retryable error: %w", err)
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			statusCode := 0
-			apiError := ""
-			if lastResponse != nil {
-				statusCode = lastResponse.StatusCode
-				apiError = lastAPIError
-			}
-			
-			resourceErr := errors.NewError("emma_volume", "Update").
-				WithID(stateData.Id.ValueString()).
-				WithStatusCode(statusCode).
-				WithAPIError(apiError).
-				WithMessage(errors.MapHTTPError(statusCode, apiError)).
-				Build()
-			
-			resp.Diagnostics.AddError("Client Error", resourceErr.Error())
-			return
-		}
-
-		tflog.Info(ctx, "Volume resize completed successfully", map[string]interface{}{
-			"volume_id": stateData.Id.ValueString(),
-		})
 	}
 
 	// Handle attachment changes
-	// Check if attachment changed
 	if !planAttachedToId.Equal(stateAttachedToId) {
-		// Detach from old instance if currently attached
+		// Detach from old instance
 		if !stateAttachedToId.IsNull() && !stateAttachedToId.IsUnknown() {
 			oldVmId, err := convert.Int64ToInt32(stateAttachedToId)
 			if err != nil {
-				resourceErr := errors.NewError("emma_volume", "Update").
-					WithID(stateData.Id.ValueString()).
-					WithMessage(fmt.Sprintf("Invalid VM ID for detachment: %v", err)).
-					Build()
-				
-				resp.Diagnostics.AddError("Validation Error", resourceErr.Error())
+				resp.Diagnostics.AddError("Validation Error",
+					fmt.Sprintf("Invalid VM ID for detachment: %v", err))
 				return
 			}
 
-			tflog.Debug(ctx, "Waiting for VM to reach stable state before volume detach", map[string]interface{}{
-				"vm_id":     oldVmId,
-				"volume_id": stateData.Id.ValueString(),
-			})
-
-			// Wait for VM to reach stable state before detach
-			vmStateManager := state.NewStateTransitionManager(state.StateTransitionConfig{
-				ResourceType: "vm",
-				ResourceID:   fmt.Sprintf("%d", oldVmId),
-				StatusChecker: func(ctx context.Context) (string, error) {
-					vm, _, err := r.apiClient.VirtualMachinesAPI.GetVm(auth, oldVmId).Execute()
-					if err != nil {
-						return "", err
-					}
-					if vm.Status == nil {
-						return "", fmt.Errorf("VM status is nil")
-					}
-					return *vm.Status, nil
-				},
-				TargetStates:       state.VMStableStates,
-				TransitionalStates: state.VMTransitionalStates,
-				FailureStates:      state.VMFailureStates,
-				Timeout:            async.DefaultTimeout,
-				PollInterval:       async.DefaultPollInterval,
-			})
-
-			if err := vmStateManager.WaitForStableState(auth); err != nil {
-				resp.Diagnostics.AddError("State Transition Error",
-					fmt.Sprintf("VM did not reach stable state before volume detach: %s", err.Error()))
+			if err := state.NewStateTransitionManager(r.vmStateConfig(auth, oldVmId)).WaitForStableState(auth); err != nil {
+				resp.Diagnostics.AddError("State Transition Error", err.Error())
 				return
 			}
-
-			tflog.Debug(ctx, "Waiting for volume to reach stable state before detach", map[string]interface{}{
-				"volume_id": stateData.Id.ValueString(),
-			})
-
-			// Wait for volume to reach stable state before detach
-			volumeStateManager := state.NewStateTransitionManager(state.StateTransitionConfig{
-				ResourceType: "volume",
-				ResourceID:   stateData.Id.ValueString(),
-				StatusChecker: func(ctx context.Context) (string, error) {
-					vol, _, err := r.apiClient.VolumesAPI.GetVolume(auth, volumeId).Execute()
-					if err != nil {
-						return "", err
-					}
-					if vol.Status == nil {
-						return "", fmt.Errorf("volume status is nil")
-					}
-					return *vol.Status, nil
-				},
-				TargetStates:       state.VolumeStableStates,
-				TransitionalStates: state.VolumeTransitionalStates,
-				FailureStates:      state.VolumeFailureStates,
-				Timeout:            async.DefaultTimeout,
-				PollInterval:       async.DefaultPollInterval,
-			})
-
-			if err := volumeStateManager.WaitForStableState(auth); err != nil {
-				resp.Diagnostics.AddError("State Transition Error",
-					fmt.Sprintf("Volume did not reach stable state before detach: %s", err.Error()))
+			if err := r.waitForStableAndRetry(ctx, auth,
+				r.volumeStateConfig(auth, volumeId, volumeIdStr),
+				func() (*http.Response, error) {
+					volumeDetach := emmaSdk.NewVolumeDetach("detach", volumeId)
+					vmActionsReq := emmaSdk.VolumeDetachAsVmActionsRequest(volumeDetach)
+					_, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth, oldVmId).VmActionsRequest(vmActionsReq).Execute()
+					return response, err
+				}, "detach", volumeIdStr); err != nil {
+				resp.Diagnostics.AddError("Client Error", err.Error())
 				return
 			}
-
-			tflog.Info(ctx, "VM and volume reached stable state, proceeding with detach", map[string]interface{}{
-				"vm_id":     oldVmId,
-				"volume_id": stateData.Id.ValueString(),
-			})
-
-			// Perform detach with retry on state conflicts
-			retryConfig := retry.StateConflictRetryConfig()
-			var lastResponse *http.Response
-			var lastAPIError string
-
-			err = retry.Retry(auth, retryConfig, func() error {
-				volumeDetach := emmaSdk.NewVolumeDetach("detach", volumeId)
-				vmActionsReq := emmaSdk.VolumeDetachAsVmActionsRequest(volumeDetach)
-				
-				_, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth, oldVmId).VmActionsRequest(vmActionsReq).Execute()
-
-				lastResponse = response
-				if err != nil {
-					lastAPIError = tools.ExtractErrorMessage(response)
-					statusCode := 0
-					if response != nil {
-						statusCode = response.StatusCode
-					}
-
-					// Check if this is a state conflict error that should be retried
-					if retry.IsStateConflictError(err, statusCode, lastAPIError) {
-						tflog.Warn(ctx, "Volume detach failed due to state conflict, will retry", map[string]interface{}{
-							"vm_id":       oldVmId,
-							"volume_id":   stateData.Id.ValueString(),
-							"status_code": statusCode,
-							"error":       lastAPIError,
-						})
-						return err
-					}
-
-					// Non-retryable error
-					return fmt.Errorf("non-retryable error: %w", err)
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				statusCode := 0
-				apiError := ""
-				if lastResponse != nil {
-					statusCode = lastResponse.StatusCode
-					apiError = lastAPIError
-				}
-				
-				resourceErr := errors.NewError("emma_volume", "Update").
-					WithID(stateData.Id.ValueString()).
-					WithStatusCode(statusCode).
-					WithAPIError(apiError).
-					WithMessage(fmt.Sprintf("Unable to detach volume from VM %d: %s", oldVmId, errors.MapHTTPError(statusCode, apiError))).
-					Build()
-				
-				resp.Diagnostics.AddError("Client Error", resourceErr.Error())
-				return
-			}
-
-			tflog.Info(ctx, "Volume detached successfully", map[string]interface{}{
-				"vm_id":     oldVmId,
-				"volume_id": stateData.Id.ValueString(),
-			})
 		}
 
-		// Attach to new instance if specified
+		// Attach to new instance
 		if !planAttachedToId.IsNull() && !planAttachedToId.IsUnknown() {
 			newVmId, err := convert.Int64ToInt32(planAttachedToId)
 			if err != nil {
-				resourceErr := errors.NewError("emma_volume", "Update").
-					WithID(stateData.Id.ValueString()).
-					WithMessage(fmt.Sprintf("Invalid VM ID for attachment: %v", err)).
-					Build()
-				
-				resp.Diagnostics.AddError("Validation Error", resourceErr.Error())
+				resp.Diagnostics.AddError("Validation Error",
+					fmt.Sprintf("Invalid VM ID for attachment: %v", err))
 				return
 			}
 
-			tflog.Debug(ctx, "Waiting for VM to reach stable state before volume attach", map[string]interface{}{
-				"vm_id":     newVmId,
-				"volume_id": stateData.Id.ValueString(),
-			})
-
-			// Wait for VM to reach stable state before attach
-			vmStateManager := state.NewStateTransitionManager(state.StateTransitionConfig{
-				ResourceType: "vm",
-				ResourceID:   fmt.Sprintf("%d", newVmId),
-				StatusChecker: func(ctx context.Context) (string, error) {
-					vm, _, err := r.apiClient.VirtualMachinesAPI.GetVm(auth, newVmId).Execute()
-					if err != nil {
-						return "", err
-					}
-					if vm.Status == nil {
-						return "", fmt.Errorf("VM status is nil")
-					}
-					return *vm.Status, nil
-				},
-				TargetStates:       state.VMStableStates,
-				TransitionalStates: state.VMTransitionalStates,
-				FailureStates:      state.VMFailureStates,
-				Timeout:            async.DefaultTimeout,
-				PollInterval:       async.DefaultPollInterval,
-			})
-
-			if err := vmStateManager.WaitForStableState(auth); err != nil {
-				resp.Diagnostics.AddError("State Transition Error",
-					fmt.Sprintf("VM did not reach stable state before volume attach: %s", err.Error()))
+			if err := state.NewStateTransitionManager(r.vmStateConfig(auth, newVmId)).WaitForStableState(auth); err != nil {
+				resp.Diagnostics.AddError("State Transition Error", err.Error())
 				return
 			}
-
-			tflog.Debug(ctx, "Waiting for volume to reach stable state before attach", map[string]interface{}{
-				"volume_id": stateData.Id.ValueString(),
-			})
-
-			// Wait for volume to reach stable state before attach
-			volumeStateManager := state.NewStateTransitionManager(state.StateTransitionConfig{
-				ResourceType: "volume",
-				ResourceID:   stateData.Id.ValueString(),
-				StatusChecker: func(ctx context.Context) (string, error) {
-					vol, _, err := r.apiClient.VolumesAPI.GetVolume(auth, volumeId).Execute()
-					if err != nil {
-						return "", err
-					}
-					if vol.Status == nil {
-						return "", fmt.Errorf("volume status is nil")
-					}
-					return *vol.Status, nil
-				},
-				TargetStates:       state.VolumeStableStates,
-				TransitionalStates: state.VolumeTransitionalStates,
-				FailureStates:      state.VolumeFailureStates,
-				Timeout:            async.DefaultTimeout,
-				PollInterval:       async.DefaultPollInterval,
-			})
-
-			if err := volumeStateManager.WaitForStableState(auth); err != nil {
-				resp.Diagnostics.AddError("State Transition Error",
-					fmt.Sprintf("Volume did not reach stable state before attach: %s", err.Error()))
+			if err := r.waitForStableAndRetry(ctx, auth,
+				r.volumeStateConfig(auth, volumeId, volumeIdStr),
+				func() (*http.Response, error) {
+					volumeAttach := emmaSdk.NewVolumeAttach("attach", volumeId)
+					vmActionsReq := emmaSdk.VolumeAttachAsVmActionsRequest(volumeAttach)
+					_, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth, newVmId).VmActionsRequest(vmActionsReq).Execute()
+					return response, err
+				}, "attach", volumeIdStr); err != nil {
+				resp.Diagnostics.AddError("Client Error", err.Error())
 				return
 			}
-
-			tflog.Info(ctx, "VM and volume reached stable state, proceeding with attach", map[string]interface{}{
-				"vm_id":     newVmId,
-				"volume_id": stateData.Id.ValueString(),
-			})
-
-			// Perform attach with retry on state conflicts
-			retryConfig := retry.StateConflictRetryConfig()
-			var lastResponse *http.Response
-			var lastAPIError string
-
-			err = retry.Retry(auth, retryConfig, func() error {
-				volumeAttach := emmaSdk.NewVolumeAttach("attach", volumeId)
-				vmActionsReq := emmaSdk.VolumeAttachAsVmActionsRequest(volumeAttach)
-				
-				_, response, err := r.apiClient.VirtualMachinesAPI.VmActions(auth, newVmId).VmActionsRequest(vmActionsReq).Execute()
-
-				lastResponse = response
-				if err != nil {
-					lastAPIError = tools.ExtractErrorMessage(response)
-					statusCode := 0
-					if response != nil {
-						statusCode = response.StatusCode
-					}
-
-					// Check if this is a state conflict error that should be retried
-					if retry.IsStateConflictError(err, statusCode, lastAPIError) {
-						tflog.Warn(ctx, "Volume attach failed due to state conflict, will retry", map[string]interface{}{
-							"vm_id":       newVmId,
-							"volume_id":   stateData.Id.ValueString(),
-							"status_code": statusCode,
-							"error":       lastAPIError,
-						})
-						return err
-					}
-
-					// Non-retryable error
-					return fmt.Errorf("non-retryable error: %w", err)
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				statusCode := 0
-				apiError := ""
-				if lastResponse != nil {
-					statusCode = lastResponse.StatusCode
-					apiError = lastAPIError
-				}
-				
-				resourceErr := errors.NewError("emma_volume", "Update").
-					WithID(stateData.Id.ValueString()).
-					WithStatusCode(statusCode).
-					WithAPIError(apiError).
-					WithMessage(fmt.Sprintf("Unable to attach volume to VM %d: %s", newVmId, errors.MapHTTPError(statusCode, apiError))).
-					Build()
-				
-				resp.Diagnostics.AddError("Client Error", resourceErr.Error())
-				return
-			}
-
-			tflog.Info(ctx, "Volume attached successfully", map[string]interface{}{
-				"vm_id":     newVmId,
-				"volume_id": stateData.Id.ValueString(),
-			})
 		}
 	}
 
@@ -821,28 +579,19 @@ func (r *volumeResource) Update(ctx context.Context, req resource.UpdateRequest,
 			statusCode = response.StatusCode
 			apiError = tools.ExtractErrorMessage(response)
 		}
-		
-		resourceErr := errors.NewError("emma_volume", "Update").
-			WithID(stateData.Id.ValueString()).
-			WithStatusCode(statusCode).
-			WithAPIError(apiError).
-			WithMessage(errors.MapHTTPError(statusCode, apiError)).
-			Build()
-		
-		resp.Diagnostics.AddError("Client Error", resourceErr.Error())
+		resp.Diagnostics.AddError("Client Error",
+			errors.NewError("emma_volume", "Update").WithID(volumeIdStr).
+				WithStatusCode(statusCode).WithAPIError(apiError).
+				WithMessage(errors.MapHTTPError(statusCode, apiError)).Build().Error())
 		return
 	}
 
-	// Convert API response to resource model
 	convertVolumeResponseToResource(ctx, &plan, volume, resp.Diagnostics)
 
-	// Preserve the planned attached_to_id if attachment just changed
-	// The API may return null temporarily during the attachment transition
 	if !planAttachedToId.Equal(stateAttachedToId) {
 		plan.AttachedToId = planAttachedToId
 	}
 
-	// Save updated state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -880,10 +629,6 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	// Check if volume is attached
-	// Note: During destroy, we don't need to explicitly detach volumes from VMs
-	// The Emma API automatically detaches volumes when a VM is deleted
-	// We only need to detach if we're changing attachment, not during destroy
 	if !data.AttachedToId.IsNull() && !data.AttachedToId.IsUnknown() {
 		vmId, err := convert.Int64ToInt32(data.AttachedToId)
 		if err != nil {
@@ -891,39 +636,25 @@ func (r *volumeResource) Delete(ctx context.Context, req resource.DeleteRequest,
 				WithID(data.Id.ValueString()).
 				WithMessage(fmt.Sprintf("Invalid VM ID for detachment: %v", err)).
 				Build()
-			
+
 			resp.Diagnostics.AddError("Validation Error", resourceErr.Error())
 			return
 		}
 
-		tflog.Info(ctx, "Volume is attached to VM, checking if VM still exists", map[string]interface{}{
-			"vm_id":     vmId,
-			"volume_id": data.Id.ValueString(),
-		})
-		
-		// Check if VM still exists
-		_, response, err := r.apiClient.VirtualMachinesAPI.GetVm(auth, vmId).Execute()
-		if err != nil && response != nil && response.StatusCode == 404 {
-			tflog.Info(ctx, "VM no longer exists, volume is already detached, proceeding to delete", map[string]interface{}{
+		_, vmResponse, vmErr := r.apiClient.VirtualMachinesAPI.GetVm(auth, vmId).Execute()
+		if vmErr != nil && vmResponse != nil && vmResponse.StatusCode == 404 {
+			tflog.Info(ctx, "VM no longer exists, proceeding to delete volume", map[string]interface{}{
 				"vm_id":     vmId,
 				"volume_id": data.Id.ValueString(),
 			})
-			// VM is gone, volume is already detached, skip to deletion
-			goto deleteVolume
+		} else {
+			tflog.Info(ctx, "Skipping explicit detach during destroy — API handles it", map[string]interface{}{
+				"vm_id":     vmId,
+				"volume_id": data.Id.ValueString(),
+			})
 		}
-		
-		tflog.Info(ctx, "VM still exists, but skipping explicit detach during destroy - API will handle it", map[string]interface{}{
-			"vm_id":     vmId,
-			"volume_id": data.Id.ValueString(),
-		})
-		
-		// During destroy, we skip the detach step entirely
-		// The volume deletion API will handle detachment if needed
-		// This avoids race conditions with VM deletion
-		goto deleteVolume
 	}
 
-deleteVolume:
 	// Call Emma API to delete volume
 	_, response, err := r.apiClient.VolumesAPI.VolumeDelete(auth, volumeId).Execute()
 

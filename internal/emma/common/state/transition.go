@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/emma-community/terraform-provider-emma/internal/emma/common/async"
@@ -163,30 +164,30 @@ func (m *StateTransitionManager) WaitForStableState(ctx context.Context) error {
 	return nil
 }
 
-// IsTransitionalState checks if current state is transitional
+// IsTransitionalState checks if current state is transitional (case-insensitive)
 func (m *StateTransitionManager) IsTransitionalState(state string) bool {
 	for _, ts := range m.config.TransitionalStates {
-		if state == ts {
+		if strings.EqualFold(state, ts) {
 			return true
 		}
 	}
 	return false
 }
 
-// IsStableState checks if current state is stable
+// IsStableState checks if current state is stable (case-insensitive)
 func (m *StateTransitionManager) IsStableState(state string) bool {
 	for _, ss := range m.config.TargetStates {
-		if state == ss {
+		if strings.EqualFold(state, ss) {
 			return true
 		}
 	}
 	return false
 }
 
-// IsFailureState checks if current state is a failure state
+// IsFailureState checks if current state is a failure state (case-insensitive)
 func (m *StateTransitionManager) IsFailureState(state string) bool {
 	for _, fs := range m.config.FailureStates {
-		if state == fs {
+		if strings.EqualFold(state, fs) {
 			return true
 		}
 	}

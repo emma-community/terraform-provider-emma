@@ -448,7 +448,9 @@ func (r *securityGroupResource) Delete(ctx context.Context, req resource.DeleteR
 				return "", fmt.Errorf("failed to get security group status: %s", errors.MapHTTPError(statusCode, tools.ExtractErrorMessage(response)))
 			}
 			
-			// Check if synchronized and recomposed
+			if securityGroup.SynchronizationStatus == nil || securityGroup.RecomposingStatus == nil {
+				return "UNKNOWN", nil
+			}
 			if *securityGroup.SynchronizationStatus == "SYNCHRONIZED" && *securityGroup.RecomposingStatus == "RECOMPOSED" {
 				// Also check if there are no instances attached
 				securityGroupInstances, response, err := r.apiClient.SecurityGroupsAPI.SecurityGroupInstances(auth, tools.StringToInt32(data.Id.ValueString())).Execute()
@@ -547,8 +549,16 @@ func ConvertSecurityGroupResponseToResource(ctx context.Context, planData *secur
 
 	stateData.Id = types.StringValue(strconv.Itoa(int(*securityGroupResponse.Id)))
 	stateData.Name = types.StringValue(*securityGroupResponse.Name)
-	stateData.SynchronizationStatus = types.StringValue(*securityGroupResponse.SynchronizationStatus)
-	stateData.RecomposingStatus = types.StringValue(*securityGroupResponse.RecomposingStatus)
+	if securityGroupResponse.SynchronizationStatus != nil {
+		stateData.SynchronizationStatus = types.StringValue(*securityGroupResponse.SynchronizationStatus)
+	} else {
+		stateData.SynchronizationStatus = types.StringNull()
+	}
+	if securityGroupResponse.RecomposingStatus != nil {
+		stateData.RecomposingStatus = types.StringValue(*securityGroupResponse.RecomposingStatus)
+	} else {
+		stateData.RecomposingStatus = types.StringNull()
+	}
 	if securityGroupResponse.LastModificationErrorDescription != nil {
 		stateData.LastModificationErrorDescription = types.StringValue(*securityGroupResponse.LastModificationErrorDescription)
 	} else {

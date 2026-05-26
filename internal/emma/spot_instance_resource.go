@@ -45,10 +45,12 @@ type spotInstanceResourceModel struct {
 	RamGb            types.Int64   `tfsdk:"ram_gb"`
 	VolumeType       types.String  `tfsdk:"volume_type"`
 	VolumeGb         types.Int64   `tfsdk:"volume_gb"`
-	SecurityGroupId  types.Int64   `tfsdk:"security_group_id"`
-	SshKeyId         types.Int64   `tfsdk:"ssh_key_id"`
-	UserPassword     types.String  `tfsdk:"user_password"`
-	Price            types.Float64 `tfsdk:"price"`
+	SecurityGroupId   types.Int64   `tfsdk:"security_group_id"`
+	AcceleratorTypeId types.String  `tfsdk:"accelerator_type_id"`
+	Accelerators      types.Float64 `tfsdk:"accelerators"`
+	SshKeyId          types.Int64   `tfsdk:"ssh_key_id"`
+	UserPassword      types.String  `tfsdk:"user_password"`
+	Price             types.Float64 `tfsdk:"price"`
 	Status           types.String  `tfsdk:"status"`
 	Disks            types.List    `tfsdk:"disks"`
 	Networks         types.List    `tfsdk:"networks"`
@@ -194,6 +196,16 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				Required:    false,
 				Optional:    true,
 				Validators:  []validator.Int64{emma.PositiveInt64{}},
+			},
+			"accelerator_type_id": schema.StringAttribute{
+				Description:   "GPU accelerator type ID",
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"accelerators": schema.Float64Attribute{
+				Description:   "Number of GPU accelerators",
+				Optional:      true,
+				PlanModifiers: []planmodifier.Float64{float64planmodifier.RequiresReplace()},
 			},
 			"price": schema.Float64Attribute{
 				Description:   "Offer price of the spot instance, spot instance will be recreated after changing this value",
@@ -448,6 +460,12 @@ func ConvertToSpotInstanceCreateRequest(data spotInstanceResourceModel, spotInst
 		securityGroupId := int32(data.SecurityGroupId.ValueInt64())
 		spotInstanceCreate.SecurityGroupId = &securityGroupId
 	}
+	if !data.AcceleratorTypeId.IsUnknown() && !data.AcceleratorTypeId.IsNull() {
+		spotInstanceCreate.AcceleratorTypeId = tools.ToPointer(data.AcceleratorTypeId.ValueString())
+	}
+	if !data.Accelerators.IsUnknown() && !data.Accelerators.IsNull() {
+		spotInstanceCreate.Accelerators = tools.ToPointer(float32(data.Accelerators.ValueFloat64()))
+	}
 	if !data.UserPassword.IsUnknown() && !data.UserPassword.IsNull() {
 		spotInstanceCreate.UserPassword = tools.ToPointer(data.UserPassword.ValueString())
 	}
@@ -528,6 +546,10 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, stateData *spotI
 	}
 	if spotInstance.SshKeyId != nil {
 		stateData.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
+	}
+	if planData != nil {
+		stateData.AcceleratorTypeId = planData.AcceleratorTypeId
+		stateData.Accelerators = planData.Accelerators
 	}
 }
 

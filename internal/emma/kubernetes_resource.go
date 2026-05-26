@@ -3,6 +3,8 @@ package emma
 import (
 	"context"
 	"fmt"
+	"time"
+
 	emmaSdk "github.com/emma-community/emma-go-sdk"
 	emma "github.com/emma-community/terraform-provider-emma/internal/emma/validation"
 	"github.com/emma-community/terraform-provider-emma/tools"
@@ -14,7 +16,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"time"
 )
 
 var _ resource.Resource = &kubernetesResource{}
@@ -32,6 +33,7 @@ type kubernetesModel struct {
 	Id                 types.Int64                 `tfsdk:"id"`
 	Name               types.String                `tfsdk:"name"`
 	DeploymentLocation types.String                `tfsdk:"deployment_location"`
+	K8sConnectionType  types.String                `tfsdk:"k8s_connection_type"`
 	DomainName         types.String                `tfsdk:"domain_name"`
 	WorkerNodes        []kubernetesWorkerNodeModel `tfsdk:"worker_nodes"`
 	AutoscalingConfigs *[]autoscalingConfigModel   `tfsdk:"autoscaling_configs"`
@@ -234,7 +236,7 @@ func (r *kubernetesResource) Metadata(_ context.Context, req resource.MetadataRe
 func ConvertToKubernetesCreateResourceRequest(data kubernetesModel, kubernetes *emmaSdk.KubernetesCreateRequest) {
 	kubernetes.Name = data.Name.ValueString()
 	kubernetes.DeploymentLocation = data.DeploymentLocation.ValueString()
-	kubernetes.K8sConnectionType = "public"
+	kubernetes.K8sConnectionType = data.K8sConnectionType.ValueString()
 
 	var workerNodes []emmaSdk.KubernetesCreateRequestWorkerNodesInner
 	for _, node := range data.WorkerNodes {
@@ -404,6 +406,12 @@ func ConvertKubernetesGetResponseToResource(result *kubernetesModel, response *e
 		result.DeploymentLocation = planData.DeploymentLocation
 	}
 
+	if response.K8sConnectionType != nil {
+		result.K8sConnectionType = types.StringValue(*response.K8sConnectionType)
+	} else {
+		result.K8sConnectionType = planData.K8sConnectionType
+	}
+
 	if response.DomainName != nil {
 		result.DomainName = types.StringValue(*response.DomainName)
 	} else {
@@ -430,7 +438,7 @@ func ConvertKubernetesGetResponseToResource(result *kubernetesModel, response *e
 		result.WorkerNodes = planData.WorkerNodes
 	}
 
-	convertAutoscalingConfigsFromResponse(result, response.AutoscalingConfigs, planData)
+	convertGetAutoscalingConfigsFromResponse(result, response.AutoscalingConfigs, planData)
 }
 
 func ConvertKubernetesCreateResponseToResource(result *kubernetesModel, response *emmaSdk.KubernetesCreateResponse, planData *kubernetesModel) {
@@ -452,12 +460,56 @@ func ConvertKubernetesCreateResponseToResource(result *kubernetesModel, response
 		result.DeploymentLocation = planData.DeploymentLocation
 	}
 
+	result.K8sConnectionType = planData.K8sConnectionType
 	result.DomainName = planData.DomainName
 	result.WorkerNodes = planData.WorkerNodes
 	result.AutoscalingConfigs = planData.AutoscalingConfigs
 }
 
 func convertAutoscalingConfigsFromResponse(result *kubernetesModel, responseConfigs []emmaSdk.KubernetesListResponseInnerAutoscalingConfigsInner, planData *kubernetesModel) {
+	if planData.AutoscalingConfigs != nil && len(*planData.AutoscalingConfigs) > 0 &&
+		len(responseConfigs) == len(*planData.AutoscalingConfigs) {
+
+		autoscalingConfigs := make([]autoscalingConfigModel, len(responseConfigs))
+
+		for i, config := range responseConfigs {
+			autoscalingConfig := autoscalingConfigModel{
+				GroupName:                          types.StringValue(*config.GroupName),
+				DataCenterId:                       types.StringValue(*config.DataCenterId),
+				UseOnDemandInstancesInsteadOfSpots: types.BoolValue(*config.UseOnDemandInstancesInsteadOfSpots),
+				SpotMarkup:                         (*planData.AutoscalingConfigs)[i].SpotMarkup,
+			}
+
+			autoscalingConfig.NodeGroupPriceLimit = tools.GetFloat64OrDefault(config.NodeGroupPriceLimit, (*planData.AutoscalingConfigs)[i].NodeGroupPriceLimit)
+			autoscalingConfig.SpotPercent = tools.GetInt64OrDefault(config.SpotPercent, (*planData.AutoscalingConfigs)[i].SpotPercent)
+			autoscalingConfig.GeneratedSpotMarkup = tools.GetFloat64OrDefault(config.SpotMarkup, (*planData.AutoscalingConfigs)[i].GeneratedSpotMarkup)
+			autoscalingConfig.MinimumNodes = tools.GetInt64OrDefault(config.MinimumNodes, types.Int64Null())
+			autoscalingConfig.MaximumNodes = tools.GetInt64OrDefault(config.MaximumNodes, types.Int64Null())
+			autoscalingConfig.TargetNodes = tools.GetInt64OrDefault(config.TargetNodes, types.Int64Null())
+			autoscalingConfig.MinimumVCpus = tools.GetInt64OrDefault(config.MinimumVCpus, types.Int64Null())
+			autoscalingConfig.MaximumVCpus = tools.GetInt64OrDefault(config.MaximumVCpus, types.Int64Null())
+			autoscalingConfig.TargetVCpus = tools.GetInt64OrDefault(config.TargetVCpus, types.Int64Null())
+
+			autoscalingConfig.ConfigurationPriorities = make([]configurationPriorityModel, len(config.ConfigurationPriorities))
+			for j, priority := range config.ConfigurationPriorities {
+				autoscalingConfig.ConfigurationPriorities[j] = configurationPriorityModel{
+					VCpuType:   types.StringValue(*priority.VCpuType),
+					VCpu:       types.Int64Value(int64(*priority.VCpu)),
+					RamGb:      types.Int64Value(int64(*priority.RamGb)),
+					VolumeGb:   types.Int64Value(int64(*priority.VolumeGb)),
+					VolumeType: types.StringValue(*priority.VolumeType),
+					Priority:   types.StringValue(*priority.Priority),
+				}
+			}
+			autoscalingConfigs[i] = autoscalingConfig
+		}
+		result.AutoscalingConfigs = &autoscalingConfigs
+	} else {
+		result.AutoscalingConfigs = planData.AutoscalingConfigs
+	}
+}
+
+func convertGetAutoscalingConfigsFromResponse(result *kubernetesModel, responseConfigs []emmaSdk.KubernetesGetResponseAutoscalingConfigsInner, planData *kubernetesModel) {
 	if planData.AutoscalingConfigs != nil && len(*planData.AutoscalingConfigs) > 0 &&
 		len(responseConfigs) == len(*planData.AutoscalingConfigs) {
 
@@ -523,6 +575,11 @@ func (r *kubernetesResource) Schema(_ context.Context, req resource.SchemaReques
 			},
 			"deployment_location": schema.StringAttribute{
 				Description:   "The deployment location of the Kubernetes cluster",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"k8s_connection_type": schema.StringAttribute{
+				Description:   "Kubernetes connection type: internet_connect or direct_connect",
 				Required:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},

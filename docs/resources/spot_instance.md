@@ -60,6 +60,30 @@ resource "emma_spot_instance" "spot_instance" {
 }
 ```
 
+### Example with GPU
+
+```terraform
+data "emma_accelerator_type" "nvidia_t4" {
+  accelerator_type = "NVIDIA T4"
+}
+
+resource "emma_spot_instance" "gpu_spot" {
+  name                = "GPU-Spot"
+  data_center_id      = data.emma_data_center.aws_spot.id
+  os_id               = data.emma_operating_system.ubuntu.id
+  cloud_network_type  = "multi-cloud"
+  vcpu_type           = "standard"
+  vcpu                = 4
+  ram_gb              = 16
+  volume_type         = "ssd"
+  volume_gb           = 50
+  ssh_key_id          = emma_ssh_key.ssh_key.id
+  price               = 0.15
+  accelerator_type_id = data.emma_accelerator_type.nvidia_t4.id
+  accelerators        = 1
+}
+```
+
 ### Example with Custom Timeouts
 
 For spot instances that may take longer to provision, you can configure custom timeouts:
@@ -108,6 +132,8 @@ The provider automatically waits for the spot instance to reach a stable state b
 
 ### Optional
 
+- `accelerator_type_id` (String) GPU accelerator type ID. Use the `emma_accelerator_type` data source to look up available types. Must be specified together with `accelerators`. Changing this value will recreate the spot instance.
+- `accelerators` (Number) Number of GPU accelerators. Must be specified together with `accelerator_type_id`. Changing this value will recreate the spot instance.
 - `security_group_id` (Number) Security group ID of the spot instance, the process of changing the security group will start after changing this value
 - `ssh_key_id` (Number) Ssh key ID of the spot instance, spot instance will be recreated after changing this value
 - `user_password` (String) User password of the spot instance, spot instance will be recreated after changing this value

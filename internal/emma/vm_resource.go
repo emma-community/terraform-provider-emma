@@ -3,6 +3,10 @@ package emma
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+
 	emmaSdk "github.com/emma-community/emma-go-sdk"
 	"github.com/emma-community/terraform-provider-emma/internal/emma/common/async"
 	"github.com/emma-community/terraform-provider-emma/internal/emma/common/errors"
@@ -22,9 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"net/http"
-	"strconv"
-	"strings"
 )
 
 var _ resource.Resource = &vmResource{}
@@ -41,28 +42,28 @@ type vmResource struct {
 
 // vmResourceModel describes the resource data model.
 type vmResourceModel struct {
-	Id               types.String `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	DataCenterId     types.String `tfsdk:"data_center_id"`
-	OsId             types.Int64  `tfsdk:"os_id"`
-	CloudNetworkType types.String `tfsdk:"cloud_network_type"`
-	VCpuType         types.String `tfsdk:"vcpu_type"`
-	VCpu             types.Int64  `tfsdk:"vcpu"`
-	RamGb            types.Int64  `tfsdk:"ram_gb"`
-	VolumeType       types.String `tfsdk:"volume_type"`
-	VolumeGb         types.Int64  `tfsdk:"volume_gb"`
-	SshKeyId         types.Int64  `tfsdk:"ssh_key_id"`
-	UserPassword     types.String `tfsdk:"user_password"`
-	SecurityGroupId  types.Int64   `tfsdk:"security_group_id"`
+	Id                types.String  `tfsdk:"id"`
+	Name              types.String  `tfsdk:"name"`
+	DataCenterId      types.String  `tfsdk:"data_center_id"`
+	OsId              types.Int64   `tfsdk:"os_id"`
+	CloudNetworkType  types.String  `tfsdk:"cloud_network_type"`
+	VCpuType          types.String  `tfsdk:"vcpu_type"`
+	VCpu              types.Int64   `tfsdk:"vcpu"`
+	RamGb             types.Int64   `tfsdk:"ram_gb"`
+	VolumeType        types.String  `tfsdk:"volume_type"`
+	VolumeGb          types.Int64   `tfsdk:"volume_gb"`
+	SshKeyId          types.Int64   `tfsdk:"ssh_key_id"`
+	UserPassword      types.String  `tfsdk:"user_password"`
+	SecurityGroupId   types.Int64   `tfsdk:"security_group_id"`
 	AcceleratorTypeId types.String  `tfsdk:"accelerator_type_id"`
 	Accelerators      types.Float64 `tfsdk:"accelerators"`
 	SubnetworkId      types.String  `tfsdk:"subnetwork_id"`
 	PrivateIp         types.String  `tfsdk:"private_ip"`
 	IpAddressing      types.String  `tfsdk:"ip_addressing"`
-	Status           types.String `tfsdk:"status"`
-	Disks            types.List   `tfsdk:"disks"`
-	Networks         types.List   `tfsdk:"networks"`
-	Cost             types.Object `tfsdk:"cost"`
+	Status            types.String  `tfsdk:"status"`
+	Disks             types.List    `tfsdk:"disks"`
+	Networks          types.List    `tfsdk:"networks"`
+	Cost              types.Object  `tfsdk:"cost"`
 }
 
 type VmResourceDiskModel struct {
@@ -194,14 +195,18 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"accelerator_type_id": schema.StringAttribute{
-				Description:   "GPU accelerator type ID for the virtual machine",
+				Description:   "GPU accelerator type ID for the virtual machine. Use the emma_accelerator_type data source to look up available types. Must be specified together with accelerators. Changing this value will recreate the virtual machine.",
 				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.RequiredTogether{CompanionField: "accelerators"}},
 			},
 			"accelerators": schema.Float64Attribute{
-				Description:   "Number of GPU accelerators",
+				Description:   "Number of GPU accelerators. Must be specified together with accelerator_type_id. Changing this value will recreate the virtual machine.",
 				Optional:      true,
-				PlanModifiers: []planmodifier.Float64{float64planmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.Float64{float64planmodifier.UseStateForUnknown(), float64planmodifier.RequiresReplace()},
+				Validators:    []validator.Float64{emma.RequiredTogether{CompanionField: "accelerator_type_id"}},
 			},
 			"subnetwork_id": schema.StringAttribute{
 				Description:   "Subnetwork ID to place the virtual machine in",
@@ -325,7 +330,7 @@ func (r *vmResource) Create(ctx context.Context, req resource.CreateRequest, res
 	// Build VmCreate request from resource model
 	var vmCreateRequest emmaSdk.VmCreate
 	ConvertToVmCreateRequest(data, &vmCreateRequest)
-	
+
 	// Call Emma API to create VM
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *r.token.AccessToken)
 	vmNew, response, err := r.apiClient.VirtualMachinesAPI.VmCreate(auth).VmCreate(vmCreateRequest).Execute()
@@ -337,13 +342,13 @@ func (r *vmResource) Create(ctx context.Context, req resource.CreateRequest, res
 			statusCode = response.StatusCode
 			apiError = tools.ExtractErrorMessage(response)
 		}
-		
+
 		resourceErr := errors.NewError("emma_vm", "Create").
 			WithStatusCode(statusCode).
 			WithAPIError(apiError).
 			WithMessage(errors.MapHTTPError(statusCode, apiError)).
 			Build()
-		
+
 		resp.Diagnostics.AddError("Client Error", resourceErr.Error())
 		return
 	}
@@ -387,14 +392,14 @@ func (r *vmResource) Read(ctx context.Context, req resource.ReadRequest, resp *r
 			statusCode = response.StatusCode
 			apiError = tools.ExtractErrorMessage(response)
 		}
-		
+
 		resourceErr := errors.NewError("emma_vm", "Read").
 			WithID(data.Id.ValueString()).
 			WithStatusCode(statusCode).
 			WithAPIError(apiError).
 			WithMessage(errors.MapHTTPError(statusCode, apiError)).
 			Build()
-		
+
 		resp.Diagnostics.AddError("Client Error", resourceErr.Error())
 		return
 	}
@@ -436,7 +441,7 @@ func ResizeVolume(ctx context.Context, stateData *vmResourceModel, resp *resourc
 		resp.Diagnostics.AddError("Validation Error", "Bootable disk not found")
 		return
 	}
-	
+
 	tflog.Debug(ctx, "Waiting for volume to reach stable state before resize", map[string]interface{}{
 		"volume_id": bootableDisk.Id.ValueInt64(),
 	})
@@ -515,14 +520,14 @@ func ResizeVolume(ctx context.Context, stateData *vmResourceModel, resp *resourc
 			statusCode = lastResponse.StatusCode
 			apiError = lastAPIError
 		}
-		
+
 		resourceErr := errors.NewError("emma_vm", "Update").
 			WithID(stateData.Id.ValueString()).
 			WithStatusCode(statusCode).
 			WithAPIError(apiError).
 			WithMessage(fmt.Sprintf("Unable to resize volume: %s", errors.MapHTTPError(statusCode, apiError))).
 			Build()
-		
+
 		resp.Diagnostics.AddError("Client Error", resourceErr.Error())
 		return
 	}
@@ -558,7 +563,7 @@ func ResizeVolume(ctx context.Context, stateData *vmResourceModel, resp *resourc
 
 func EditHardware(ctx context.Context, stateData *vmResourceModel, resp *resource.UpdateResponse, r *vmResource, planData *vmResourceModel) {
 	vmId := tools.StringToInt32(stateData.Id.ValueString())
-	
+
 	tflog.Debug(ctx, "Waiting for VM to reach stable state before hardware edit", map[string]interface{}{
 		"vm_id": stateData.Id.ValueString(),
 	})
@@ -607,7 +612,7 @@ func EditHardware(ctx context.Context, stateData *vmResourceModel, resp *resourc
 			int32(planData.RamGb.ValueInt64()), int32(planData.VolumeGb.ValueInt64()))
 		vmEditHardware.VCpuType = planData.VCpuType.ValueStringPointer()
 		vmActionEditHardwareRequest.VmEditHardware = vmEditHardware
-		
+
 		vmResult, response, err := r.apiClient.VirtualMachinesAPI.VmActions(ctx, vmId).VmActionsRequest(vmActionEditHardwareRequest).Execute()
 
 		lastResponse = response
@@ -643,14 +648,14 @@ func EditHardware(ctx context.Context, stateData *vmResourceModel, resp *resourc
 			statusCode = lastResponse.StatusCode
 			apiError = lastAPIError
 		}
-		
+
 		resourceErr := errors.NewError("emma_vm", "Update").
 			WithID(stateData.Id.ValueString()).
 			WithStatusCode(statusCode).
 			WithAPIError(apiError).
 			WithMessage(fmt.Sprintf("Unable to edit hardware: %s", errors.MapHTTPError(statusCode, apiError))).
 			Build()
-		
+
 		resp.Diagnostics.AddError("Client Error", resourceErr.Error())
 		return
 	}
@@ -699,7 +704,7 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 			stateData.SecurityGroupId = types.Int64Null()
 		} else {
 			vmId := tools.StringToInt32(stateData.Id.ValueString())
-			
+
 			tflog.Debug(ctx, "Waiting for VM to reach stable state before security group change", map[string]interface{}{
 				"vm_id": stateData.Id.ValueString(),
 			})
@@ -779,14 +784,14 @@ func (r *vmResource) Update(ctx context.Context, req resource.UpdateRequest, res
 					statusCode = lastResponse.StatusCode
 					apiError = lastAPIError
 				}
-				
+
 				resourceErr := errors.NewError("emma_vm", "Update").
 					WithID(stateData.Id.ValueString()).
 					WithStatusCode(statusCode).
 					WithAPIError(apiError).
 					WithMessage(fmt.Sprintf("Unable to add VM to security group: %s", errors.MapHTTPError(statusCode, apiError))).
 					Build()
-				
+
 				resp.Diagnostics.AddError("Client Error", resourceErr.Error())
 				return
 			}
@@ -840,14 +845,14 @@ func (r *vmResource) Delete(ctx context.Context, req resource.DeleteRequest, res
 			statusCode = response.StatusCode
 			apiError = tools.ExtractErrorMessage(response)
 		}
-		
+
 		resourceErr := errors.NewError("emma_vm", "Delete").
 			WithID(data.Id.ValueString()).
 			WithStatusCode(statusCode).
 			WithAPIError(apiError).
 			WithMessage(errors.MapHTTPError(statusCode, apiError)).
 			Build()
-		
+
 		resp.Diagnostics.AddError("Client Error", resourceErr.Error())
 		return
 	}
@@ -1022,10 +1027,21 @@ func ConvertVmResponseToResource(ctx context.Context, stateData *vmResourceModel
 		stateData.SshKeyId = types.Int64Value(int64(*vm.SshKeyId))
 	}
 
-	// Preserve create-only fields from plan
-	if planData != nil {
+	// Read GPU accelerator fields from API response
+	if vm.Accelerator != nil {
+		if vm.Accelerator.AcceleratorTypeId != nil {
+			stateData.AcceleratorTypeId = types.StringValue(*vm.Accelerator.AcceleratorTypeId)
+		}
+		if vm.Accelerator.Accelerators != nil {
+			stateData.Accelerators = types.Float64Value(float64(*vm.Accelerator.Accelerators))
+		}
+	} else if planData != nil {
 		stateData.AcceleratorTypeId = planData.AcceleratorTypeId
 		stateData.Accelerators = planData.Accelerators
+	}
+
+	// Preserve create-only fields from plan
+	if planData != nil {
 		stateData.SubnetworkId = planData.SubnetworkId
 		stateData.PrivateIp = planData.PrivateIp
 		stateData.IpAddressing = planData.IpAddressing
@@ -1059,7 +1075,6 @@ func (o vmResourceNetworkModel) attrTypes() map[string]attr.Type {
 	}
 }
 
-
 // ConvertVmNewResponseToResource wraps ConvertVmResponseToResource for VmNew type
 func ConvertVmNewResponseToResource(ctx context.Context, stateData *vmResourceModel, planData *vmResourceModel, vmNew *emmaSdk.VmNew, diags diag.Diagnostics) {
 	// Convert VmNew to Vm by copying fields
@@ -1074,7 +1089,7 @@ func ConvertVmNewResponseToResource(ctx context.Context, stateData *vmResourceMo
 		SshKeyId:         vmNew.SshKeyId,
 		UserPassword:     vmNew.UserPassword,
 	}
-	
+
 	// Convert nested objects - only copy fields that exist in both types
 	if vmNew.Provider != nil {
 		vm.Provider = &emmaSdk.VmProvider{
@@ -1083,7 +1098,7 @@ func ConvertVmNewResponseToResource(ctx context.Context, stateData *vmResourceMo
 			// Type field doesn't exist in VmProvider in v0.0.10
 		}
 	}
-	
+
 	if vmNew.Location != nil {
 		vm.Location = &emmaSdk.VmLocation{
 			Id:   vmNew.Location.Id,
@@ -1091,21 +1106,21 @@ func ConvertVmNewResponseToResource(ctx context.Context, stateData *vmResourceMo
 			// Country field doesn't exist in VmLocation in v0.0.10
 		}
 	}
-	
+
 	if vmNew.DataCenter != nil {
 		vm.DataCenter = &emmaSdk.VmDataCenter{
 			Id:   vmNew.DataCenter.Id,
 			Name: vmNew.DataCenter.Name,
 		}
 	}
-	
+
 	if vmNew.Os != nil {
 		vm.Os = &emmaSdk.VmOs{
 			Id: vmNew.Os.Id,
 			// Name field doesn't exist in VmOs in v0.0.10
 		}
 	}
-	
+
 	if vmNew.SecurityGroup != nil {
 		vm.SecurityGroup = &emmaSdk.VmSecurityGroup{
 			Id:   vmNew.SecurityGroup.Id,
@@ -1119,7 +1134,7 @@ func ConvertVmNewResponseToResource(ctx context.Context, stateData *vmResourceMo
 			Name: vmNew.Subnetwork.Name,
 		}
 	}
-	
+
 	if vmNew.Cost != nil {
 		vm.Cost = &emmaSdk.VmCost{
 			Currency: vmNew.Cost.Currency,
@@ -1127,7 +1142,7 @@ func ConvertVmNewResponseToResource(ctx context.Context, stateData *vmResourceMo
 			Unit:     vmNew.Cost.Unit,
 		}
 	}
-	
+
 	// Convert disks
 	if vmNew.Disks != nil {
 		vm.Disks = make([]emmaSdk.VmDisksInner, len(vmNew.Disks))
@@ -1141,7 +1156,7 @@ func ConvertVmNewResponseToResource(ctx context.Context, stateData *vmResourceMo
 			}
 		}
 	}
-	
+
 	// Convert networks
 	if vmNew.Networks != nil {
 		vm.Networks = make([]emmaSdk.VmNetworksInner, len(vmNew.Networks))
@@ -1154,7 +1169,7 @@ func ConvertVmNewResponseToResource(ctx context.Context, stateData *vmResourceMo
 			}
 		}
 	}
-	
+
 	// Call the existing conversion function
 	ConvertVmResponseToResource(ctx, stateData, planData, vm, diags)
 }

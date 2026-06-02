@@ -50,6 +50,29 @@ resource "emma_vm" "vm" {
 }
 ```
 
+### Example with GPU
+
+```terraform
+data "emma_accelerator_type" "nvidia_a100" {
+  accelerator_type = "NVIDIA A100"
+}
+
+resource "emma_vm" "gpu_vm" {
+  name                = "GPU-Training"
+  data_center_id      = data.emma_data_center.aws.id
+  os_id               = data.emma_operating_system.ubuntu.id
+  cloud_network_type  = "multi-cloud"
+  vcpu_type           = "standard"
+  vcpu                = 8
+  ram_gb              = 32
+  volume_type         = "ssd"
+  volume_gb           = 100
+  ssh_key_id          = emma_ssh_key.ssh_key.id
+  accelerator_type_id = data.emma_accelerator_type.nvidia_a100.id
+  accelerators        = 1
+}
+```
+
 ### Example with Custom Timeouts
 
 For large VMs or slow providers, you can configure custom timeouts:
@@ -96,8 +119,13 @@ The provider automatically waits for the VM to reach a stable state (POWERED_ON 
 
 ### Optional
 
+- `accelerator_type_id` (String) GPU accelerator type ID for the virtual machine. Use the `emma_accelerator_type` data source to look up available types. Must be specified together with `accelerators`. Changing this value will recreate the virtual machine.
+- `accelerators` (Number) Number of GPU accelerators. Must be specified together with `accelerator_type_id`. Changing this value will recreate the virtual machine.
+- `ip_addressing` (String) IP addressing mode, available values: ipv4 or dual-stack
+- `private_ip` (String) Private IP address within the subnetwork range
 - `security_group_id` (Number) Security group ID of the virtual machine, the process of changing the security group will start after changing this value
 - `ssh_key_id` (Number) Ssh key ID of the virtual machine, virtual machine will be recreated after changing this value
+- `subnetwork_id` (String) Subnetwork ID to place the virtual machine in
 - `user_password` (String) User password of the virtual machine, virtual machine will be recreated after changing this value
 
 ### Read-Only

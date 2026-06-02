@@ -3,6 +3,8 @@ package emma
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	emmaSdk "github.com/emma-community/emma-go-sdk"
 	emma "github.com/emma-community/terraform-provider-emma/internal/emma/validation"
 	"github.com/emma-community/terraform-provider-emma/tools"
@@ -18,7 +20,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"strconv"
 )
 
 var _ resource.Resource = &spotInstanceResource{}
@@ -35,26 +36,26 @@ type spotInstanceResource struct {
 
 // spotInstanceResourceModel describes the resource data model.
 type spotInstanceResourceModel struct {
-	Id               types.String  `tfsdk:"id"`
-	Name             types.String  `tfsdk:"name"`
-	DataCenterId     types.String  `tfsdk:"data_center_id"`
-	OsId             types.Int64   `tfsdk:"os_id"`
-	CloudNetworkType types.String  `tfsdk:"cloud_network_type"`
-	VCpuType         types.String  `tfsdk:"vcpu_type"`
-	VCpu             types.Int64   `tfsdk:"vcpu"`
-	RamGb            types.Int64   `tfsdk:"ram_gb"`
-	VolumeType       types.String  `tfsdk:"volume_type"`
-	VolumeGb         types.Int64   `tfsdk:"volume_gb"`
+	Id                types.String  `tfsdk:"id"`
+	Name              types.String  `tfsdk:"name"`
+	DataCenterId      types.String  `tfsdk:"data_center_id"`
+	OsId              types.Int64   `tfsdk:"os_id"`
+	CloudNetworkType  types.String  `tfsdk:"cloud_network_type"`
+	VCpuType          types.String  `tfsdk:"vcpu_type"`
+	VCpu              types.Int64   `tfsdk:"vcpu"`
+	RamGb             types.Int64   `tfsdk:"ram_gb"`
+	VolumeType        types.String  `tfsdk:"volume_type"`
+	VolumeGb          types.Int64   `tfsdk:"volume_gb"`
 	SecurityGroupId   types.Int64   `tfsdk:"security_group_id"`
 	AcceleratorTypeId types.String  `tfsdk:"accelerator_type_id"`
 	Accelerators      types.Float64 `tfsdk:"accelerators"`
 	SshKeyId          types.Int64   `tfsdk:"ssh_key_id"`
 	UserPassword      types.String  `tfsdk:"user_password"`
 	Price             types.Float64 `tfsdk:"price"`
-	Status           types.String  `tfsdk:"status"`
-	Disks            types.List    `tfsdk:"disks"`
-	Networks         types.List    `tfsdk:"networks"`
-	Cost             types.Object  `tfsdk:"cost"`
+	Status            types.String  `tfsdk:"status"`
+	Disks             types.List    `tfsdk:"disks"`
+	Networks          types.List    `tfsdk:"networks"`
+	Cost              types.Object  `tfsdk:"cost"`
 }
 
 type spotInstanceResourceDiskModel struct {
@@ -198,14 +199,18 @@ func (r *spotInstanceResource) Schema(ctx context.Context, req resource.SchemaRe
 				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"accelerator_type_id": schema.StringAttribute{
-				Description:   "GPU accelerator type ID",
+				Description:   "GPU accelerator type ID. Use the emma_accelerator_type data source to look up available types. Must be specified together with accelerators. Changing this value will recreate the spot instance.",
 				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{emma.RequiredTogether{CompanionField: "accelerators"}},
 			},
 			"accelerators": schema.Float64Attribute{
-				Description:   "Number of GPU accelerators",
+				Description:   "Number of GPU accelerators. Must be specified together with accelerator_type_id. Changing this value will recreate the spot instance.",
 				Optional:      true,
-				PlanModifiers: []planmodifier.Float64{float64planmodifier.RequiresReplace()},
+				Computed:      true,
+				PlanModifiers: []planmodifier.Float64{float64planmodifier.UseStateForUnknown(), float64planmodifier.RequiresReplace()},
+				Validators:    []validator.Float64{emma.RequiredTogether{CompanionField: "accelerator_type_id"}},
 			},
 			"price": schema.Float64Attribute{
 				Description:   "Offer price of the spot instance, spot instance will be recreated after changing this value",
@@ -547,7 +552,15 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, stateData *spotI
 	if spotInstance.SshKeyId != nil {
 		stateData.SshKeyId = types.Int64Value(int64(*spotInstance.SshKeyId))
 	}
-	if planData != nil {
+	// Read GPU accelerator fields from API response
+	if spotInstance.Accelerator != nil {
+		if spotInstance.Accelerator.AcceleratorTypeId != nil {
+			stateData.AcceleratorTypeId = types.StringValue(*spotInstance.Accelerator.AcceleratorTypeId)
+		}
+		if spotInstance.Accelerator.Accelerators != nil {
+			stateData.Accelerators = types.Float64Value(float64(*spotInstance.Accelerator.Accelerators))
+		}
+	} else if planData != nil {
 		stateData.AcceleratorTypeId = planData.AcceleratorTypeId
 		stateData.Accelerators = planData.Accelerators
 	}
@@ -580,7 +593,6 @@ func (o spotInstanceResourceNetworkModel) attrTypes() map[string]attr.Type {
 	}
 }
 
-
 // ConvertSpotVmResponseToResource wraps ConvertSpotInstanceResponseToResource for SpotVm type
 func ConvertSpotVmResponseToResource(ctx context.Context, stateData *spotInstanceResourceModel, planData *spotInstanceResourceModel, spotVm *emmaSdk.SpotVm, diags diag.Diagnostics) {
 	// Convert SpotVm to Vm by copying fields
@@ -595,7 +607,7 @@ func ConvertSpotVmResponseToResource(ctx context.Context, stateData *spotInstanc
 		SshKeyId:         spotVm.SshKeyId,
 		UserPassword:     spotVm.UserPassword,
 	}
-	
+
 	// Convert nested objects - only copy fields that exist in both types
 	if spotVm.Provider != nil {
 		vm.Provider = &emmaSdk.VmProvider{
@@ -604,7 +616,7 @@ func ConvertSpotVmResponseToResource(ctx context.Context, stateData *spotInstanc
 			// Type field doesn't exist in SpotVmProvider
 		}
 	}
-	
+
 	if spotVm.Location != nil {
 		vm.Location = &emmaSdk.VmLocation{
 			Id:   spotVm.Location.Id,
@@ -612,28 +624,28 @@ func ConvertSpotVmResponseToResource(ctx context.Context, stateData *spotInstanc
 			// Country field doesn't exist in VmLocation in v0.0.10
 		}
 	}
-	
+
 	if spotVm.DataCenter != nil {
 		vm.DataCenter = &emmaSdk.VmDataCenter{
 			Id:   spotVm.DataCenter.Id,
 			Name: spotVm.DataCenter.Name,
 		}
 	}
-	
+
 	if spotVm.Os != nil {
 		vm.Os = &emmaSdk.VmOs{
 			Id: spotVm.Os.Id,
 			// Name field doesn't exist in SpotVmOs
 		}
 	}
-	
+
 	if spotVm.SecurityGroup != nil {
 		vm.SecurityGroup = &emmaSdk.VmSecurityGroup{
 			Id:   spotVm.SecurityGroup.Id,
 			Name: spotVm.SecurityGroup.Name,
 		}
 	}
-	
+
 	if spotVm.Cost != nil {
 		vm.Cost = &emmaSdk.VmCost{
 			Currency: spotVm.Cost.Currency,
@@ -641,7 +653,16 @@ func ConvertSpotVmResponseToResource(ctx context.Context, stateData *spotInstanc
 			Unit:     spotVm.Cost.Unit,
 		}
 	}
-	
+
+	if spotVm.Accelerator != nil {
+		vm.Accelerator = &emmaSdk.VmAccelerator{
+			AcceleratorTypeId: spotVm.Accelerator.AcceleratorTypeId,
+			AcceleratorType:   spotVm.Accelerator.AcceleratorType,
+			Accelerators:      spotVm.Accelerator.Accelerators,
+			TotalGpuMemoryGb:  spotVm.Accelerator.TotalGpuMemoryGb,
+		}
+	}
+
 	// Convert disks
 	if spotVm.Disks != nil {
 		vm.Disks = make([]emmaSdk.VmDisksInner, len(spotVm.Disks))
@@ -655,7 +676,7 @@ func ConvertSpotVmResponseToResource(ctx context.Context, stateData *spotInstanc
 			}
 		}
 	}
-	
+
 	// Convert networks
 	if spotVm.Networks != nil {
 		vm.Networks = make([]emmaSdk.VmNetworksInner, len(spotVm.Networks))
@@ -668,7 +689,7 @@ func ConvertSpotVmResponseToResource(ctx context.Context, stateData *spotInstanc
 			}
 		}
 	}
-	
+
 	// Call the existing conversion function
 	ConvertSpotInstanceResponseToResource(ctx, stateData, planData, vm, diags)
 }

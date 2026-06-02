@@ -192,6 +192,49 @@ func (v RequiresOneOf) ValidateInt64(ctx context.Context, req validator.Int64Req
 	}
 }
 
+// RequiredTogether validates that if this field is set, the companion field must also be set (and vice versa).
+type RequiredTogether struct {
+	CompanionField string
+}
+
+func (v RequiredTogether) Description(ctx context.Context) string {
+	return fmt.Sprintf("Must be specified together with %s", v.CompanionField)
+}
+
+func (v RequiredTogether) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v RequiredTogether) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	var companion attr.Value
+	diags := req.Config.GetAttribute(ctx, path.Root(v.CompanionField), &companion)
+	if diags.HasError() || companion.IsNull() {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Missing Required Companion Field",
+			fmt.Sprintf("%s must be specified together with %s", req.Path, v.CompanionField),
+		)
+	}
+}
+
+func (v RequiredTogether) ValidateFloat64(ctx context.Context, req validator.Float64Request, resp *validator.Float64Response) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	var companion attr.Value
+	diags := req.Config.GetAttribute(ctx, path.Root(v.CompanionField), &companion)
+	if diags.HasError() || companion.IsNull() {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Missing Required Companion Field",
+			fmt.Sprintf("%s must be specified together with %s", req.Path, v.CompanionField),
+		)
+	}
+}
+
 // ValidateInt64 implementation for MutuallyExclusive to support int64 fields
 func (v MutuallyExclusive) ValidateInt64(ctx context.Context, req validator.Int64Request, resp *validator.Int64Response) {
 	// If the current field is null or unknown, no validation needed

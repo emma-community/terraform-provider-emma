@@ -11,13 +11,17 @@ Returns a list of all available GPU accelerator types. Use this data source to d
 
 ## Example Usage
 
-### List all available GPU types
+### Resolve a GPU id by name (preferred)
+
+Use the computed `ids_by_name` map to wire a GPU into a VM or spot resource with a single lookup, no `for`-expression required.
 
 ```terraform
 data "emma_accelerator_types" "all" {}
 
-output "available_gpus" {
-  value = data.emma_accelerator_types.all.accelerator_types
+resource "emma_vm" "gpu_vm" {
+  # ...other required fields...
+  accelerator_type_id = data.emma_accelerator_types.all.ids_by_name["NVIDIA T4"]
+  accelerators        = 1
 }
 ```
 
@@ -26,13 +30,20 @@ output "available_gpus" {
 ```terraform
 data "emma_accelerator_types" "all" {}
 
-# Pick the first accelerator type and look up VM configs for it
 data "emma_vm_configurations" "gpu" {
-  accelerator_type_id = data.emma_accelerator_types.all.accelerator_types[0].id
+  accelerator_type_id = data.emma_accelerator_types.all.ids_by_name["NVIDIA A100 40 GB"]
 }
+```
 
-output "gpu_types" {
-  value = [for t in data.emma_accelerator_types.all.accelerator_types : t.accelerator_type]
+### List the names of all available GPUs
+
+Handy for debugging or for CI checks:
+
+```terraform
+data "emma_accelerator_types" "all" {}
+
+output "available_gpus" {
+  value = keys(data.emma_accelerator_types.all.ids_by_name)
 }
 ```
 
@@ -40,6 +51,7 @@ output "gpu_types" {
 
 ### Read-Only
 
-- `accelerator_types` (List of Object) List of available GPU accelerator types. Each element has:
+- `accelerator_types` (List of Object) Full list of available GPU accelerator types. Each element has:
   - `id` (String) — Unique ID of the accelerator type (UUID)
-  - `accelerator_type` (String) — Name of the GPU model (e.g. "NVIDIA T4", "AMD Instinct MI25")
+  - `accelerator_type` (String) — Name of the GPU model (e.g. `"NVIDIA T4"`, `"AMD Instinct MI25"`)
+- `ids_by_name` (Map of String) Convenience lookup: map from accelerator type name to its id. Use to wire a GPU into a VM or spot resource without a `for`-expression, e.g. `accelerator_type_id = data.emma_accelerator_types.all.ids_by_name["NVIDIA T4"]`. Names are unique on the platform; if a name is not present in the catalogue, the map lookup returns `null`.

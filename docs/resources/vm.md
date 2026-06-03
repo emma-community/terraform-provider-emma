@@ -53,7 +53,7 @@ resource "emma_vm" "vm" {
 ### Example with GPU
 
 ```terraform
-# List all available GPU models and pick the one we need by name.
+# Look up GPU types and resolve an id by name in one line.
 data "emma_accelerator_types" "all" {}
 
 resource "emma_vm" "gpu_vm" {
@@ -68,10 +68,7 @@ resource "emma_vm" "gpu_vm" {
   volume_gb           = 128
   security_group_id   = emma_security_group.security_group.id
   ssh_key_id          = emma_ssh_key.ssh_key.id
-  accelerator_type_id = one([
-    for t in data.emma_accelerator_types.all.accelerator_types :
-    t.id if t.accelerator_type == "NVIDIA A100 40 GB"
-  ])
+  accelerator_type_id = data.emma_accelerator_types.all.ids_by_name["NVIDIA A100 40 GB"]
   accelerators        = 1
 }
 

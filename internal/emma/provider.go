@@ -232,6 +232,18 @@ func (p *Provider) DataSources(_ context.Context) []func() datasource.DataSource
 		NewMulticloudNetworkDataSource,
 		NewConnectivityCenterDataSource,
 		NewAcceleratorTypeDataSource,
+		NewAcceleratorTypesDataSource,
+		NewVmConfigurationsDataSource,
+		NewSpotConfigurationsDataSource,
+		NewVmsDataSource,
+		NewSpotsDataSource,
+		NewSecurityGroupsDataSource,
+		NewVolumesDataSource,
+		NewSshKeysDataSource,
+		NewKubernetesClustersDataSource,
+		NewSystemVolumeConfigsDataSource,
+		NewKuberNodesConfigsDataSource,
+		NewVmResizeConfigsDataSource,
 	}
 }
 

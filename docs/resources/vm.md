@@ -67,6 +67,7 @@ resource "emma_vm" "gpu_vm" {
   ram_gb              = 32
   volume_type         = "ssd"
   volume_gb           = 100
+  security_group_id   = emma_security_group.security_group.id
   ssh_key_id          = emma_ssh_key.ssh_key.id
   accelerator_type_id = data.emma_accelerator_type.nvidia_a100.id
   accelerators        = 1

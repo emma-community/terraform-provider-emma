@@ -195,7 +195,7 @@ func (r *vmResource) Schema(ctx context.Context, req resource.SchemaRequest, res
 				Validators:  []validator.Int64{emma.PositiveInt64{}},
 			},
 			"accelerator_type_id": schema.StringAttribute{
-				Description:   "GPU accelerator type ID for the virtual machine. Use the emma_accelerator_type data source to look up available types. Must be specified together with accelerators. Changing this value will recreate the virtual machine.",
+				Description:   "GPU accelerator type ID for the virtual machine. Use the emma_accelerator_types data source to list available types and pick an id. Must be specified together with accelerators. Changing this value will recreate the virtual machine.",
 				Optional:      true,
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},

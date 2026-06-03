@@ -7,9 +7,7 @@ description: |-
 
 # emma_accelerator_types (Data Source)
 
-Returns a list of all available GPU accelerator types. Use this data source to discover which GPU models are available on the platform before creating GPU-enabled virtual machines or spot instances.
-
-For looking up a specific accelerator type by name, use the [`emma_accelerator_type`](accelerator_type.md) data source instead.
+Returns a list of all available GPU accelerator types. Use this data source to discover which GPU models are available on the platform before creating GPU-enabled virtual machines or spot instances, and to resolve a model name to its `accelerator_type_id`.
 
 ## Example Usage
 

@@ -5,8 +5,16 @@ output "nvidia_t4_id" {
   value = data.emma_accelerator_types.all.ids_by_name["NVIDIA T4"]
 }
 
-output "available_gpus" {
+output "available_gpu_names" {
   value = keys(data.emma_accelerator_types.all.ids_by_name)
+}
+
+output "available_gpus" {
+  value = data.emma_accelerator_types.all.accelerator_types
+}
+
+output "available_gpus_map" {
+  value = data.emma_accelerator_types.all.ids_by_name
 }
 
 # Feed an id into another data source to filter VM configurations by GPU.

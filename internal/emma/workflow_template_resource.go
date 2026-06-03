@@ -493,13 +493,14 @@ func convertToWorkflowTemplateCreateRequest(ctx context.Context, data workflowTe
 		req.Description = &desc
 	}
 
+	// Server rejects null lists ("must not be null") — default to empty slices.
+	req.ResourceParams = make([]emmaSdk.WorkflowTemplateCreateResourceParamsInner, 0)
 	if !data.ResourceParams.IsNull() && !data.ResourceParams.IsUnknown() {
 		var paramModels []workflowTemplateResourceParamModel
 		diags.Append(data.ResourceParams.ElementsAs(ctx, &paramModels, false)...)
 		if diags.HasError() {
 			return req, diags
 		}
-		sdkParams := make([]emmaSdk.WorkflowTemplateCreateResourceParamsInner, 0, len(paramModels))
 		for _, p := range paramModels {
 			inner := emmaSdk.WorkflowTemplateCreateResourceParamsInner{}
 			if !p.Name.IsNull() && !p.Name.IsUnknown() {
@@ -510,18 +511,17 @@ func convertToWorkflowTemplateCreateRequest(ctx context.Context, data workflowTe
 				v := p.Value.ValueString()
 				inner.Value = &v
 			}
-			sdkParams = append(sdkParams, inner)
+			req.ResourceParams = append(req.ResourceParams, inner)
 		}
-		req.ResourceParams = sdkParams
 	}
 
+	req.Tags = make([]emmaSdk.WorkflowTemplateCreateTagsInner, 0)
 	if !data.Tags.IsNull() && !data.Tags.IsUnknown() {
 		var tagModels []workflowTemplateTagModel
 		diags.Append(data.Tags.ElementsAs(ctx, &tagModels, false)...)
 		if diags.HasError() {
 			return req, diags
 		}
-		sdkTags := make([]emmaSdk.WorkflowTemplateCreateTagsInner, 0, len(tagModels))
 		for _, t := range tagModels {
 			inner := emmaSdk.WorkflowTemplateCreateTagsInner{}
 			if !t.TagId.IsNull() && !t.TagId.IsUnknown() {
@@ -536,18 +536,17 @@ func convertToWorkflowTemplateCreateRequest(ctx context.Context, data workflowTe
 				v := t.Value.ValueString()
 				inner.Value = &v
 			}
-			sdkTags = append(sdkTags, inner)
+			req.Tags = append(req.Tags, inner)
 		}
-		req.Tags = sdkTags
 	}
 
+	req.ContentParams = make([]emmaSdk.WorkflowTemplateCreateContentParamsInner, 0)
 	if !data.ContentParams.IsNull() && !data.ContentParams.IsUnknown() {
 		var cpModels []workflowTemplateContentParamModel
 		diags.Append(data.ContentParams.ElementsAs(ctx, &cpModels, false)...)
 		if diags.HasError() {
 			return req, diags
 		}
-		sdkCps := make([]emmaSdk.WorkflowTemplateCreateContentParamsInner, 0, len(cpModels))
 		for _, cp := range cpModels {
 			inner := emmaSdk.WorkflowTemplateCreateContentParamsInner{}
 			if !cp.Name.IsNull() && !cp.Name.IsUnknown() {
@@ -562,9 +561,8 @@ func convertToWorkflowTemplateCreateRequest(ctx context.Context, data workflowTe
 				m := cp.Mandatory.ValueBool()
 				inner.Mandatory = &m
 			}
-			sdkCps = append(sdkCps, inner)
+			req.ContentParams = append(req.ContentParams, inner)
 		}
-		req.ContentParams = sdkCps
 	}
 
 	return req, diags

@@ -556,13 +556,20 @@ func ConvertSpotInstanceResponseToResource(ctx context.Context, stateData *spotI
 	if spotInstance.Accelerator != nil {
 		if spotInstance.Accelerator.AcceleratorTypeId != nil {
 			stateData.AcceleratorTypeId = types.StringValue(*spotInstance.Accelerator.AcceleratorTypeId)
+		} else {
+			stateData.AcceleratorTypeId = types.StringNull()
 		}
 		if spotInstance.Accelerator.Accelerators != nil {
 			stateData.Accelerators = types.Float64Value(float64(*spotInstance.Accelerator.Accelerators))
+		} else {
+			stateData.Accelerators = types.Float64Null()
 		}
 	} else if planData != nil {
 		stateData.AcceleratorTypeId = planData.AcceleratorTypeId
 		stateData.Accelerators = planData.Accelerators
+	} else {
+		stateData.AcceleratorTypeId = types.StringNull()
+		stateData.Accelerators = types.Float64Null()
 	}
 }
 

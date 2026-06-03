@@ -12,11 +12,74 @@ Provides information about available accelerator types (e.g. GPU models) that ca
 
 Use this data source to look up the ID of a GPU accelerator type by name. The returned ID can then be passed to the `accelerator_type_id` field of the `emma_vm` or `emma_spot_instance` resource.
 
+## How to Find Available Accelerator Types
+
+The provider does not currently have a data source that lists all accelerator types. To discover available GPU types, use the Emma API directly:
+
+```bash
+# 1. Get an access token
+TOKEN=$(curl -s -X POST 'https://api.emma.ms/external/v1/issue-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"clientId":"YOUR_CLIENT_ID","clientSecret":"YOUR_CLIENT_SECRET"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['accessToken'])")
+
+# 2. List all available accelerator types
+curl -s -H "Authorization: Bearer $TOKEN" \
+  'https://api.emma.ms/external/v1/accelerator-types' | python3 -m json.tool
+```
+
+Then use the `accelerator_type` name from the response in the data source lookup.
+
+### Available Accelerator Types
+
+| Name | Provider availability |
+|------|---------------------|
+| NVIDIA T4 | AWS |
+| NVIDIA A10 | Azure |
+| NVIDIA A10G | AWS |
+| NVIDIA A100 40 GB | AWS |
+| NVIDIA A100 80 GB | AWS |
+| NVIDIA L4 | AWS |
+| NVIDIA L40S | AWS |
+| NVIDIA H100 80 GB | AWS |
+| NVIDIA H100 94 GB | AWS |
+| NVIDIA H200 | AWS |
+| NVIDIA B200 Blackwell | AWS |
+| NVIDIA B200 Blackwell 180 GB | AWS |
+| NVIDIA Tesla V100 32 GB | Azure |
+| NVIDIA Tesla M60 | Azure |
+| NVIDIA RTX PRO 5000 48 GB | AWS |
+| NVIDIA RTX PRO 6000 | AWS |
+| AMD Instinct MI25 | Azure |
+| AMD Instinct MI300X | AWS |
+| AMD Radeon Pro V520 | Azure |
+| AMD Radeon Pro V710 | Azure |
+
+~> **Note:** Availability may vary by data center and change over time. Use the API call above to get the current list.
+
 ## Example Usage
+
+### Look up a single accelerator type
+
+```terraform
+data "emma_accelerator_type" "nvidia_t4" {
+  accelerator_type = "NVIDIA T4"
+}
+
+output "t4_id" {
+  value = data.emma_accelerator_type.nvidia_t4.id
+}
+
+output "t4_name" {
+  value = data.emma_accelerator_type.nvidia_t4.accelerator_type
+}
+```
+
+### Use with a GPU virtual machine
 
 ```terraform
 data "emma_accelerator_type" "nvidia_a100" {
-  accelerator_type = "NVIDIA A100"
+  accelerator_type = "NVIDIA A100 80 GB"
 }
 
 resource "emma_vm" "gpu_vm" {
@@ -29,9 +92,67 @@ resource "emma_vm" "gpu_vm" {
   ram_gb              = 32
   volume_type         = "ssd"
   volume_gb           = 100
+  security_group_id   = emma_security_group.security_group.id
   ssh_key_id          = emma_ssh_key.ssh_key.id
   accelerator_type_id = data.emma_accelerator_type.nvidia_a100.id
   accelerators        = 1
+}
+
+output "gpu_vm_id" {
+  value = emma_vm.gpu_vm.id
+}
+
+output "gpu_vm_status" {
+  value = emma_vm.gpu_vm.status
+}
+
+output "gpu_vm_accelerator_type_id" {
+  value = emma_vm.gpu_vm.accelerator_type_id
+}
+
+output "gpu_vm_accelerators" {
+  value = emma_vm.gpu_vm.accelerators
+}
+```
+
+### Use with a GPU spot instance
+
+```terraform
+data "emma_accelerator_type" "nvidia_t4" {
+  accelerator_type = "NVIDIA T4"
+}
+
+resource "emma_spot_instance" "gpu_spot" {
+  name                = "GPU-Spot"
+  data_center_id      = data.emma_data_center.aws.id
+  os_id               = data.emma_operating_system.ubuntu.id
+  cloud_network_type  = "isolated"
+  vcpu_type           = "hpc"
+  vcpu                = 4
+  ram_gb              = 16
+  volume_type         = "ssd"
+  volume_gb           = 64
+  security_group_id   = emma_security_group.security_group.id
+  ssh_key_id          = emma_ssh_key.ssh_key.id
+  price               = 0.15
+  accelerator_type_id = data.emma_accelerator_type.nvidia_t4.id
+  accelerators        = 1
+}
+
+output "gpu_spot_id" {
+  value = emma_spot_instance.gpu_spot.id
+}
+
+output "gpu_spot_status" {
+  value = emma_spot_instance.gpu_spot.status
+}
+
+output "gpu_spot_accelerator_type_id" {
+  value = emma_spot_instance.gpu_spot.accelerator_type_id
+}
+
+output "gpu_spot_accelerators" {
+  value = emma_spot_instance.gpu_spot.accelerators
 }
 ```
 
@@ -40,7 +161,7 @@ resource "emma_vm" "gpu_vm" {
 
 ### Required
 
-- `accelerator_type` (String) Name of the accelerator type (e.g. NVIDIA A100, NVIDIA T4, NVIDIA L4)
+- `accelerator_type` (String) Name of the accelerator type (e.g. NVIDIA A100 80 GB, NVIDIA T4, NVIDIA L4)
 
 ### Read-Only
 

@@ -560,13 +560,22 @@ func ConvertSecurityGroupResponseToResource(ctx context.Context, planData *secur
 		stateData.Name = planData.Name
 	} else if securityGroupResponse.Rules != nil {
 		var rules []securityGroupResourceRuleModel
-		rulesListValue, _ := stateData.Rules.ToListValue(ctx)
+		rulesListValue, listDiags := stateData.Rules.ToListValue(ctx)
+		diags.Append(listDiags...)
 		rulesListValue.ElementsAs(ctx, &rules, false)
-		ruleOrderMap := make(map[string]int)
+
+		// Build an ordered index: key -> position in the state slice.
+		// Using the state slice length (not map length) so indices are always valid.
+		ruleOrderMap := make(map[string]int, len(rules))
 		for idx, rule := range rules {
-			ruleOrderMap[rule.Direction.ValueString()+rule.Protocol.ValueString()+rule.Ports.ValueString()+rule.IpRange.ValueString()] = idx
+			key := rule.Direction.ValueString() + rule.Protocol.ValueString() + rule.Ports.ValueString() + rule.IpRange.ValueString()
+			ruleOrderMap[key] = idx
 		}
-		securityGroupRuleModels := make([]securityGroupResourceRuleModel, len(ruleOrderMap))
+
+		// slots mirrors the state slice; filled[i]=true means the API returned that rule.
+		slots := make([]*securityGroupResourceRuleModel, len(rules))
+		var appended []securityGroupResourceRuleModel
+
 		for _, securityGroupRule := range securityGroupResponse.Rules {
 			if securityGroupRule.IsMutable == nil || !*securityGroupRule.IsMutable {
 				continue
@@ -579,14 +588,24 @@ func ConvertSecurityGroupResponseToResource(ctx context.Context, planData *secur
 			}
 			// to save same order as in configuration we have map, and we have 2 different checks with subnet mask and without
 			if idx, ok := ruleOrderMap[*securityGroupRule.Direction+*securityGroupRule.Protocol+*securityGroupRule.Ports+*securityGroupRule.IpRange]; ok {
-				securityGroupRuleModels[idx] = securityGroupRuleModel
+				slots[idx] = &securityGroupRuleModel
 			} else if idx1, ok1 := ruleOrderMap[*securityGroupRule.Direction+*securityGroupRule.Protocol+*securityGroupRule.Ports+stripSubnetMask(*securityGroupRule.IpRange)]; ok1 {
 				securityGroupRuleModel.IpRange = types.StringValue(stripSubnetMask(securityGroupRuleModel.IpRange.ValueString()))
-				securityGroupRuleModels[idx1] = securityGroupRuleModel
+				slots[idx1] = &securityGroupRuleModel
 			} else {
-				securityGroupRuleModels = append(securityGroupRuleModels, securityGroupRuleModel)
+				appended = append(appended, securityGroupRuleModel)
 			}
 		}
+
+		// Collect matched state-ordered rules, skipping slots not returned by API (deleted server-side).
+		securityGroupRuleModels := make([]securityGroupResourceRuleModel, 0, len(rules)+len(appended))
+		for _, slot := range slots {
+			if slot != nil {
+				securityGroupRuleModels = append(securityGroupRuleModels, *slot)
+			}
+		}
+		securityGroupRuleModels = append(securityGroupRuleModels, appended...)
+
 		rulesListValue, rulesDiagnostic := types.ListValueFrom(ctx,
 			types.ObjectType{AttrTypes: securityGroupResourceRuleModel{}.attrTypes()}, securityGroupRuleModels)
 		stateData.Rules = rulesListValue

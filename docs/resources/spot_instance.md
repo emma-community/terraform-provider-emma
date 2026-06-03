@@ -77,6 +77,7 @@ resource "emma_spot_instance" "gpu_spot" {
   ram_gb              = 16
   volume_type         = "ssd"
   volume_gb           = 50
+  security_group_id   = emma_security_group.security_group.id
   ssh_key_id          = emma_ssh_key.ssh_key.id
   price               = 0.15
   accelerator_type_id = data.emma_accelerator_type.nvidia_t4.id

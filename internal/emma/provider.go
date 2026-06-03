@@ -244,6 +244,9 @@ func (p *Provider) DataSources(_ context.Context) []func() datasource.DataSource
 		NewSystemVolumeConfigsDataSource,
 		NewKuberNodesConfigsDataSource,
 		NewVmResizeConfigsDataSource,
+		NewSshKeyDataSource,
+		NewStatisticalDataDataSource,
+		NewWorkflowTemplatesDataSource,
 	}
 }
 
@@ -257,6 +260,7 @@ func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 		NewKubernetesResource,
 		NewVolumeResource,
 		NewSubnetworkResource,
+		NewWorkflowTemplateResource,
 	}
 }
 

@@ -54,8 +54,8 @@ func (d *systemVolumeConfigsDataSource) Schema(ctx context.Context, req datasour
 			"Use this data source to discover valid system volume sizes and types when planning VM deployments or system volume upsizing.",
 		Attributes: map[string]schema.Attribute{
 			"attached_to_id": schema.Int64Attribute{
-				Description: "ID of the instance the system volume is attached to",
-				Optional:    true,
+				Description: "ID of the instance the system volume is attached to. Required by the server.",
+				Required:    true,
 			},
 			"volume_gb_min": schema.Int64Attribute{
 				Description: "Minimum volume size in gigabytes to filter configurations",
@@ -148,9 +148,7 @@ func (d *systemVolumeConfigsDataSource) Read(ctx context.Context, req datasource
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
 	apiReq := d.apiClient.VolumesConfigurationsAPI.GetSystemVolumeConfigs(auth)
 
-	if !data.AttachedToId.IsNull() && !data.AttachedToId.IsUnknown() {
-		apiReq = apiReq.AttachedToId(int32(data.AttachedToId.ValueInt64()))
-	}
+	apiReq = apiReq.AttachedToId(int32(data.AttachedToId.ValueInt64()))
 	if !data.VolumeGbMin.IsNull() && !data.VolumeGbMin.IsUnknown() {
 		apiReq = apiReq.VolumeGbMin(int32(data.VolumeGbMin.ValueInt64()))
 	}

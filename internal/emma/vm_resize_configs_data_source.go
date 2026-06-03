@@ -58,8 +58,8 @@ func (d *vmResizeConfigsDataSource) Schema(ctx context.Context, req datasource.S
 			"Use this data source to discover valid resize configurations for an existing VM before calling the VM edit endpoint.",
 		Attributes: map[string]schema.Attribute{
 			"vm_id": schema.Int64Attribute{
-				Description: "ID of the virtual machine to retrieve resize configurations for",
-				Optional:    true,
+				Description: "ID of the virtual machine to retrieve resize configurations for. Required by the server.",
+				Required:    true,
 			},
 			"vcpu_type": schema.StringAttribute{
 				Description: "vCPU type to filter configurations (shared, standard, hpc)",
@@ -168,9 +168,7 @@ func (d *vmResizeConfigsDataSource) Read(ctx context.Context, req datasource.Rea
 	auth := context.WithValue(ctx, emmaSdk.ContextAccessToken, *d.token.AccessToken)
 	apiReq := d.apiClient.ComputeInstancesConfigurationsAPI.GetVmResizeConfigs(auth)
 
-	if !data.VmId.IsNull() && !data.VmId.IsUnknown() {
-		apiReq = apiReq.VmId(int32(data.VmId.ValueInt64()))
-	}
+	apiReq = apiReq.VmId(int32(data.VmId.ValueInt64()))
 	if !data.VCpuType.IsNull() && !data.VCpuType.IsUnknown() {
 		apiReq = apiReq.VCpuType(data.VCpuType.ValueString())
 	}

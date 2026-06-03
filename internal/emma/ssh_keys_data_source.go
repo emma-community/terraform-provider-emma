@@ -153,7 +153,7 @@ func (o sshKeyItemModel) attrTypes() map[string]attr.Type {
 // convertSshKeysToList converts Emma API SSH keys response to Terraform list
 func convertSshKeysToList(ctx context.Context, sshKeys []emmaSdk.SshKey) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var itemModels []sshKeyItemModel
+	itemModels := make([]sshKeyItemModel, 0, len(sshKeys))
 
 	for _, k := range sshKeys {
 		item := sshKeyItemModel{}

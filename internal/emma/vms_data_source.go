@@ -216,7 +216,7 @@ func (o vmItemModel) attrTypes() map[string]attr.Type {
 // convertVmsToList converts Emma API VMs response to Terraform list
 func convertVmsToList(ctx context.Context, vms []emmaSdk.Vm) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var itemModels []vmItemModel
+	itemModels := make([]vmItemModel, 0, len(vms))
 
 	for _, vm := range vms {
 		item := vmItemModel{}

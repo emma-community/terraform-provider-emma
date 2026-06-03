@@ -199,7 +199,7 @@ func (o kubernetesClusterItemModel) attrTypes() map[string]attr.Type {
 // convertKubernetesClustersToList converts Emma API Kubernetes clusters response to Terraform list
 func convertKubernetesClustersToList(ctx context.Context, clusters []emmaSdk.KubernetesListResponseInner) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var itemModels []kubernetesClusterItemModel
+	itemModels := make([]kubernetesClusterItemModel, 0, len(clusters))
 
 	for _, c := range clusters {
 		item := kubernetesClusterItemModel{}

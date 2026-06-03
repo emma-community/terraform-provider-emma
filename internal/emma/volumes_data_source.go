@@ -195,7 +195,7 @@ func (o volumeItemModel) attrTypes() map[string]attr.Type {
 // convertVolumesToList converts Emma API volumes response to Terraform list
 func convertVolumesToList(ctx context.Context, volumes []emmaSdk.Volume) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var itemModels []volumeItemModel
+	itemModels := make([]volumeItemModel, 0, len(volumes))
 
 	for _, v := range volumes {
 		item := volumeItemModel{}

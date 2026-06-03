@@ -198,9 +198,12 @@ func (d *workflowTemplatesDataSource) Read(ctx context.Context, req datasource.R
 
 		result, response, err := apiReq.Execute()
 		if err != nil {
+			apiErr := tools.ExtractErrorMessage(response)
+			if apiErr == "" {
+				apiErr = err.Error()
+			}
 			resp.Diagnostics.AddError("Client Error",
-				fmt.Sprintf("Unable to read workflow templates, got error: %s",
-					tools.ExtractErrorMessage(response)))
+				fmt.Sprintf("Unable to read workflow templates, got error: %s", apiErr))
 			return
 		}
 

@@ -222,7 +222,7 @@ func (o spotItemModel) attrTypes() map[string]attr.Type {
 // convertSpotsToList converts Emma API spot instances response to Terraform list
 func convertSpotsToList(ctx context.Context, spots []emmaSdk.SpotVm) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var itemModels []spotItemModel
+	itemModels := make([]spotItemModel, 0, len(spots))
 
 	for _, spot := range spots {
 		item := spotItemModel{}

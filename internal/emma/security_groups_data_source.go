@@ -156,7 +156,7 @@ func (o securityGroupItemModel) attrTypes() map[string]attr.Type {
 // convertSecurityGroupsToList converts Emma API security groups response to Terraform list
 func convertSecurityGroupsToList(ctx context.Context, securityGroups []emmaSdk.SecurityGroup) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var itemModels []securityGroupItemModel
+	itemModels := make([]securityGroupItemModel, 0, len(securityGroups))
 
 	for _, sg := range securityGroups {
 		item := securityGroupItemModel{}

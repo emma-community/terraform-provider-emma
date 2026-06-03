@@ -27,6 +27,7 @@ type acceleratorTypesDataSource struct {
 // acceleratorTypesDataSourceModel describes the data source data model.
 type acceleratorTypesDataSourceModel struct {
 	AcceleratorTypes types.List `tfsdk:"accelerator_types"`
+	IdsByName        types.Map  `tfsdk:"ids_by_name"`
 }
 
 // acceleratorTypeItemModel describes individual accelerator type items in the list.
@@ -58,6 +59,12 @@ func (d *acceleratorTypesDataSource) Schema(ctx context.Context, req datasource.
 						},
 					},
 				},
+			},
+			"ids_by_name": schema.MapAttribute{
+				Description: "Map from accelerator type name to its id, e.g. " +
+					"`accelerator_type_id = data.emma_accelerator_types.all.ids_by_name[\"NVIDIA T4\"]`.",
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 		},
 	}
@@ -104,6 +111,13 @@ func (d *acceleratorTypesDataSource) Read(ctx context.Context, req datasource.Re
 
 	data.AcceleratorTypes = typeList
 
+	idsByName, mapDiags := buildAcceleratorIdsByName(ctx, acceleratorTypes)
+	resp.Diagnostics.Append(mapDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	data.IdsByName = idsByName
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -113,6 +127,24 @@ func (o acceleratorTypeItemModel) attrTypes() map[string]attr.Type {
 		"id":               types.StringType,
 		"accelerator_type": types.StringType,
 	}
+}
+
+// buildAcceleratorIdsByName builds a map from accelerator type name to its id.
+// Items missing either field are skipped. On duplicate names the first one wins
+// (in practice names are unique on the platform).
+func buildAcceleratorIdsByName(ctx context.Context, acceleratorTypes []emmaSdk.AcceleratorType) (types.Map, diag.Diagnostics) {
+	pairs := make(map[string]attr.Value, len(acceleratorTypes))
+	for _, at := range acceleratorTypes {
+		if at.Id == nil || at.AcceleratorType == nil {
+			continue
+		}
+		name := *at.AcceleratorType
+		if _, exists := pairs[name]; exists {
+			continue
+		}
+		pairs[name] = types.StringValue(*at.Id)
+	}
+	return types.MapValue(types.StringType, pairs)
 }
 
 // convertAcceleratorTypesToList converts Emma API accelerator types response to Terraform list

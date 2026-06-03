@@ -578,7 +578,11 @@ func convertWorkflowTemplateToResource(ctx context.Context, data *workflowTempla
 	data.Content = types.StringValue(template.Content)
 	data.Status = types.StringValue(template.Status)
 	data.ResourceType = types.StringValue(template.ResourceType)
-	data.CreatedAt = types.StringValue(template.CreatedAt)
+	if template.CreatedAt != nil {
+		data.CreatedAt = types.StringValue(*template.CreatedAt)
+	} else {
+		data.CreatedAt = types.StringNull()
+	}
 	data.CreatedByName = types.StringValue(template.CreatedByName)
 	createdById := template.CreatedById
 	data.CreatedById = convert.Int32ToString(&createdById)

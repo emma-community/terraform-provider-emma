@@ -63,9 +63,8 @@ resource "emma_spot_instance" "spot_instance" {
 ### Example with GPU
 
 ```terraform
-data "emma_accelerator_type" "nvidia_t4" {
-  accelerator_type = "NVIDIA T4"
-}
+# List all available GPU models and pick the one we need by name.
+data "emma_accelerator_types" "all" {}
 
 resource "emma_spot_instance" "gpu_spot" {
   name                = "GPU-Spot"
@@ -80,10 +79,23 @@ resource "emma_spot_instance" "gpu_spot" {
   security_group_id   = emma_security_group.security_group.id
   ssh_key_id          = emma_ssh_key.ssh_key.id
   price               = 0.15
-  accelerator_type_id = data.emma_accelerator_type.nvidia_t4.id
+  accelerator_type_id = one([
+    for t in data.emma_accelerator_types.all.accelerator_types :
+    t.id if t.accelerator_type == "NVIDIA T4"
+  ])
   accelerators        = 1
 }
+
+output "gpu_spot_accelerator_type_id" {
+  value = emma_spot_instance.gpu_spot.accelerator_type_id
+}
+
+output "gpu_spot_accelerators" {
+  value = emma_spot_instance.gpu_spot.accelerators
+}
 ```
+
+For a non-GPU spot `accelerator_type_id` and `accelerators` are `null`.
 
 ### Example with Custom Timeouts
 
@@ -133,7 +145,7 @@ The provider automatically waits for the spot instance to reach a stable state b
 
 ### Optional
 
-- `accelerator_type_id` (String) GPU accelerator type ID. Use the `emma_accelerator_type` data source to look up available types. Must be specified together with `accelerators`. Changing this value will recreate the spot instance.
+- `accelerator_type_id` (String) GPU accelerator type ID. Use the `emma_accelerator_types` data source to list available types and pick an id. Must be specified together with `accelerators`. Changing this value will recreate the spot instance.
 - `accelerators` (Number) Number of GPU accelerators. Must be specified together with `accelerator_type_id`. Changing this value will recreate the spot instance.
 - `security_group_id` (Number) Security group ID of the spot instance, the process of changing the security group will start after changing this value
 - `ssh_key_id` (Number) Ssh key ID of the spot instance, spot instance will be recreated after changing this value

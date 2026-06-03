@@ -16,13 +16,14 @@ All filter attributes are optional — omit them to get all configurations, or c
 ### Find GPU spot configurations
 
 ```terraform
-data "emma_accelerator_type" "t4" {
-  accelerator_type = "NVIDIA T4"
-}
+data "emma_accelerator_types" "all" {}
 
 data "emma_spot_configurations" "gpu_t4" {
-  accelerator_type_id = data.emma_accelerator_type.t4.id
-  vcpu_max            = 4
+  accelerator_type_id = one([
+    for t in data.emma_accelerator_types.all.accelerator_types :
+    t.id if t.accelerator_type == "NVIDIA T4"
+  ])
+  vcpu_max = 4
 }
 
 output "t4_spot_configs" {
@@ -54,7 +55,7 @@ output "cheap_spots_count" {
 
 ### Optional
 
-- `accelerator_type_id` (String) Filter by GPU accelerator type ID. Use `emma_accelerator_types` or `emma_accelerator_type` data source to find the ID.
+- `accelerator_type_id` (String) Filter by GPU accelerator type ID. Use the `emma_accelerator_types` data source to find the ID.
 - `data_center_id` (String) Filter by data center ID (e.g. "aws-sa-east-1", "azure-westeurope")
 - `provider_id` (Number) Filter by cloud provider ID (e.g. 255 = AWS, 256 = Azure)
 - `vcpu_type` (String) Filter by vCPU type: "shared", "standard", or "hpc"

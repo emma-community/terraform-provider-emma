@@ -45,6 +45,30 @@ output "available_gpus" {
 }
 ```
 
+### List all GPUs with full details
+
+Output the complete list of accelerator types (id + name):
+
+```terraform
+data "emma_accelerator_types" "all" {}
+
+output "available_gpus" {
+  value = data.emma_accelerator_types.all.accelerator_types
+}
+```
+
+### List all GPUs as a name-to-id map
+
+Output the full `ids_by_name` map:
+
+```terraform
+data "emma_accelerator_types" "all" {}
+
+output "available_gpus" {
+  value = data.emma_accelerator_types.all.ids_by_name
+}
+```
+
 ## Schema
 
 ### Read-Only

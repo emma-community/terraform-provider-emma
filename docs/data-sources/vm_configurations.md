@@ -19,11 +19,8 @@ All filter attributes are optional — omit them to get all configurations, or c
 data "emma_accelerator_types" "all" {}
 
 data "emma_vm_configurations" "gpu_t4" {
-  accelerator_type_id = one([
-    for t in data.emma_accelerator_types.all.accelerator_types :
-    t.id if t.accelerator_type == "NVIDIA T4"
-  ])
-  price_max = 400
+  accelerator_type_id = data.emma_accelerator_types.all.ids_by_name["NVIDIA T4"]
+  price_max           = 400
 }
 
 output "t4_configs" {

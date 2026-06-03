@@ -247,7 +247,11 @@ func convertWorkflowTemplatesToList(ctx context.Context, templates []emmaSdk.Wor
 		item.Content = types.StringValue(t.Content)
 		item.Status = types.StringValue(t.Status)
 		item.ResourceType = types.StringValue(t.ResourceType)
-		item.CreatedAt = types.StringValue(t.CreatedAt)
+		if t.CreatedAt != nil {
+			item.CreatedAt = types.StringValue(*t.CreatedAt)
+		} else {
+			item.CreatedAt = types.StringNull()
+		}
 		item.CreatedByName = types.StringValue(t.CreatedByName)
 		createdById := t.CreatedById
 		item.CreatedById = convertInt32ToStringValue(&createdById)

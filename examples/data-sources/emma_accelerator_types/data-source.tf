@@ -1,11 +1,15 @@
 # List every GPU accelerator type exposed by the platform.
 data "emma_accelerator_types" "all" {}
 
-output "available_gpus" {
-  value = [for t in data.emma_accelerator_types.all.accelerator_types : t.accelerator_type]
+output "nvidia_t4_id" {
+  value = data.emma_accelerator_types.all.ids_by_name["NVIDIA T4"]
 }
 
-# Pick one and use it to filter VM configurations.
-data "emma_vm_configurations" "gpu_configs" {
-  accelerator_type_id = data.emma_accelerator_types.all.accelerator_types[0].id
+output "available_gpus" {
+  value = keys(data.emma_accelerator_types.all.ids_by_name)
+}
+
+# Feed an id into another data source to filter VM configurations by GPU.
+data "emma_vm_configurations" "gpu_t4_configs" {
+  accelerator_type_id = data.emma_accelerator_types.all.ids_by_name["NVIDIA T4"]
 }
